@@ -166,6 +166,19 @@
         <div id="map-pick"></div>
         <div class="hint" id="latlng-hint">Location not set — click on map</div>
 
+        <label>Capture Video Complaint (optional)</label>
+        <div class="card" style="padding: 14px; margin-top: 6px;">
+          <video id="video-preview" autoplay muted style="display:none; width:100%; border-radius:6px; background:#000; max-height:240px;"></video>
+          <video id="video-playback" controls style="display:none; width:100%; border-radius:6px; background:#000; max-height:240px;"></video>
+          <div style="margin-top: 10px; display: flex; gap: 10px;">
+            <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px;" id="btn-start-camera" type="button">Start Camera</button>
+            <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px; display:none; background: var(--seal);" id="btn-record" type="button">Record</button>
+            <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px; display:none; background: var(--seal);" id="btn-stop" type="button">Stop</button>
+            <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px; display:none; background: #5c5748;" id="btn-retake" type="button">Retake</button>
+          </div>
+          <div class="hint">Record a short video explaining the problem.</div>
+        </div>
+
         <label>Contact (optional — email/phone, for updates)</label>
         <input type="text" id="f-contact" placeholder="optional" />
 
@@ -236,7 +249,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const API = "https://onocp.onrender.com";
+const API = "http://127.0.0.1:8000";
 const STATUS_COLORS = { "Pending":"#C89B3C", "Assigned":"#2E86AB", "In Progress":"#7A4E9E", "Resolved":"#4C7A3D" };
 const STATUS_FLOW = ["Pending","Assigned","In Progress","Resolved"];
 
@@ -277,6 +290,62 @@ pickMap.on('click', e=>{
   document.getElementById('latlng-hint').textContent = `Location set: ${pickedLat.toFixed(3)}, ${pickedLng.toFixed(3)}`;
 });
 
+// ---- Video Capture ----
+let mediaRecorder;
+let recordedChunks = [];
+let videoBlob = null;
+let stream = null;
+
+const videoPreview = document.getElementById('video-preview');
+const videoPlayback = document.getElementById('video-playback');
+const btnStartCamera = document.getElementById('btn-start-camera');
+const btnRecord = document.getElementById('btn-record');
+const btnStop = document.getElementById('btn-stop');
+const btnRetake = document.getElementById('btn-retake');
+
+btnStartCamera.addEventListener('click', async () => {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        videoPreview.srcObject = stream;
+        videoPreview.style.display = 'block';
+        videoPlayback.style.display = 'none';
+        btnStartCamera.style.display = 'none';
+        btnRecord.style.display = 'block';
+        btnRetake.style.display = 'none';
+    } catch (err) {
+        alert("Camera permission denied or not available.");
+    }
+});
+
+btnRecord.addEventListener('click', () => {
+    recordedChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+    };
+    mediaRecorder.onstop = () => {
+        videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+        videoPlayback.src = URL.createObjectURL(videoBlob);
+        videoPreview.style.display = 'none';
+        videoPlayback.style.display = 'block';
+        btnRetake.style.display = 'block';
+        stream.getTracks().forEach(track => track.stop());
+    };
+    mediaRecorder.start();
+    btnRecord.style.display = 'none';
+    btnStop.style.display = 'block';
+});
+
+btnStop.addEventListener('click', () => {
+    mediaRecorder.stop();
+    btnStop.style.display = 'none';
+});
+
+btnRetake.addEventListener('click', () => {
+    videoBlob = null;
+    btnStartCamera.click();
+});
+
 // ---- Submit ----
 async function submitComplaint(){
   const title = document.getElementById('f-title').value.trim();
@@ -294,18 +363,41 @@ async function submitComplaint(){
     citizen_contact: document.getElementById('f-contact').value.trim() || null,
     category_override: document.getElementById('f-category').value || null,
   };
-  try{
-    const r = await fetch(API+"/api/complaints", {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-    if(!r.ok) throw new Error('Server error');
-    const c = await r.json();
-    renderTicket(c, 'ticket-slot');
-    document.getElementById('f-title').value='';
-    document.getElementById('f-desc').value='';
-    document.getElementById('f-location').value='';
-    document.getElementById('f-contact').value='';
-  }catch(e){
-    msg.innerHTML = '<div class="msg error">Backend se connect nahi ho paaya. Kya uvicorn chal raha hai (127.0.0.1:8000)?</div>';
-  }
+    try{
+      const r = await fetch(API+"/api/complaints", {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+      if(!r.ok) throw new Error('Server error');
+      let c = await r.json();
+
+      if (videoBlob) {
+        msg.innerHTML = '<div class="msg" style="background:#fff3cd; color:#856404;">Uploading video...</div>';
+        const formData = new FormData();
+        formData.append('video', videoBlob, 'complaint.webm');
+        const r2 = await fetch(API+"/api/complaints/"+c.id+"/video", {
+          method: 'POST',
+          body: formData
+        });
+        if(r2.ok) {
+            c = await r2.json();
+        }
+      }
+
+      renderTicket(c, 'ticket-slot');
+      document.getElementById('f-title').value='';
+      document.getElementById('f-desc').value='';
+      document.getElementById('f-location').value='';
+      document.getElementById('f-contact').value='';
+      
+      // Reset video
+      videoBlob = null;
+      videoPlayback.style.display = 'none';
+      videoPreview.style.display = 'none';
+      btnStartCamera.style.display = 'block';
+      btnRetake.style.display = 'none';
+      btnRecord.style.display = 'none';
+      btnStop.style.display = 'none';
+    }catch(e){
+      msg.innerHTML = '<div class="msg error">Backend se connect nahi ho paaya. Kya uvicorn chal raha hai (127.0.0.1:8000)?</div>';
+    }
 }
 
 function renderTicket(c, slotId){
@@ -322,6 +414,7 @@ function renderTicket(c, slotId){
         <div class="ticket-id">${c.tracking_id}</div>
         <h3 style="margin-top:8px; font-size:1.1rem;">${escapeHtml(c.title)}</h3>
         <div class="hint" style="margin-top:6px;">${escapeHtml(c.category)} → ${escapeHtml(c.department)}</div>
+        ${c.video_url ? `<div style="margin-top: 14px;"><video src="${API}${c.video_url}" controls style="width:100%; border-radius:6px; background:#000; max-height:200px;"></video></div>` : ''}
         <div class="stepper">${stepsHtml}</div>
       </div>
       <div class="perforation"></div>

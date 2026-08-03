@@ -14,8 +14,11 @@ import string
 from datetime import datetime, timedelta
 from typing import Optional, List
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
+import shutil
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean
 from sqlalchemy.orm import sessionmaker, declarative_base
@@ -51,6 +54,7 @@ class Complaint(Base):
     updated_at = Column(DateTime, default=datetime.utcnow)
     deadline = Column(DateTime)
     escalated = Column(Boolean, default=False)
+    video_url = Column(String, nullable=True)
 
 
 Base.metadata.create_all(bind=engine)
@@ -66,6 +70,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 def gen_tracking_id() -> str:
@@ -93,6 +100,7 @@ def to_dict(c: Complaint) -> dict:
         "overdue": is_overdue,
         "escalated": c.escalated or is_overdue,
         "color": get_color(c.category),
+        "video_url": c.video_url,
     }
 
 
@@ -145,6 +153,26 @@ def create_complaint(payload: ComplaintCreate):
         db.commit()
         db.refresh(complaint)
         return to_dict(complaint)
+    finally:
+        db.close()
+
+@app.post("/api/complaints/{complaint_id}/video")
+def upload_video(complaint_id: int, video: UploadFile = File(...)):
+    db = SessionLocal()
+    try:
+        c = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+        if not c:
+            raise HTTPException(status_code=404, detail="Complaint not found")
+        
+        file_path = f"uploads/{c.tracking_id}_{video.filename}"
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(video.file, buffer)
+            
+        c.video_url = f"/{file_path}"
+        c.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(c)
+        return to_dict(c)
     finally:
         db.close()
 
