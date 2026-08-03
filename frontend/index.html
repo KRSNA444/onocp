@@ -170,8 +170,9 @@
         <div class="card" style="padding: 14px; margin-top: 6px;">
           <video id="video-preview" autoplay muted style="display:none; width:100%; border-radius:6px; background:#000; max-height:240px;"></video>
           <video id="video-playback" controls style="display:none; width:100%; border-radius:6px; background:#000; max-height:240px;"></video>
-          <div style="margin-top: 10px; display: flex; gap: 10px;">
+          <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
             <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px;" id="btn-start-camera" type="button">Start Camera</button>
+            <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px; display:none; background: #2E86AB;" id="btn-switch-camera" type="button">Switch Camera</button>
             <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px; display:none; background: var(--seal);" id="btn-record" type="button">Record</button>
             <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px; display:none; background: var(--seal);" id="btn-stop" type="button">Stop</button>
             <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px; display:none; background: #5c5748;" id="btn-retake" type="button">Retake</button>
@@ -299,22 +300,36 @@ let stream = null;
 const videoPreview = document.getElementById('video-preview');
 const videoPlayback = document.getElementById('video-playback');
 const btnStartCamera = document.getElementById('btn-start-camera');
+const btnSwitchCamera = document.getElementById('btn-switch-camera');
 const btnRecord = document.getElementById('btn-record');
 const btnStop = document.getElementById('btn-stop');
 const btnRetake = document.getElementById('btn-retake');
 
-btnStartCamera.addEventListener('click', async () => {
+let currentFacingMode = 'environment';
+
+async function startCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
     try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
         videoPreview.srcObject = stream;
         videoPreview.style.display = 'block';
         videoPlayback.style.display = 'none';
         btnStartCamera.style.display = 'none';
         btnRecord.style.display = 'block';
+        btnSwitchCamera.style.display = 'block';
         btnRetake.style.display = 'none';
     } catch (err) {
         alert("Camera permission denied or not available.");
     }
+}
+
+btnStartCamera.addEventListener('click', startCamera);
+
+btnSwitchCamera.addEventListener('click', () => {
+    currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+    startCamera();
 });
 
 btnRecord.addEventListener('click', () => {
@@ -333,6 +348,7 @@ btnRecord.addEventListener('click', () => {
     };
     mediaRecorder.start();
     btnRecord.style.display = 'none';
+    btnSwitchCamera.style.display = 'none';
     btnStop.style.display = 'block';
 });
 
@@ -394,6 +410,7 @@ async function submitComplaint(){
       btnStartCamera.style.display = 'block';
       btnRetake.style.display = 'none';
       btnRecord.style.display = 'none';
+      btnSwitchCamera.style.display = 'none';
       btnStop.style.display = 'none';
     }catch(e){
       msg.innerHTML = '<div class="msg error">Backend se connect nahi ho paaya. Kya uvicorn chal raha hai (127.0.0.1:8000)?</div>';
