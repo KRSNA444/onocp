@@ -135,7 +135,7 @@
   <nav>
     <button data-tab="submit" class="active">Submit</button>
     <button data-tab="track">Track</button>
-    <button data-tab="admin">Admin</button>
+    <button data-tab="admin" id="admin-nav-btn" style="display:none;">Admin</button>
     <button data-tab="heatmap">Heatmap</button>
   </nav>
 </header>
@@ -537,6 +537,12 @@ async function loadHeatmap(){
 function escapeHtml(s){
   const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML;
 }
+const ADMIN_KEY = 'onocp2026';
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('admin') === ADMIN_KEY) {
+  document.getElementById('admin-nav-btn').style.display = 'inline-block';
+}
 </script>
 </body>
 </html>
+
