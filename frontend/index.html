@@ -230,7 +230,7 @@
     <div class="card" style="padding:0; overflow-x:auto;">
       <table>
         <thead>
-          <tr><th>ID</th><th>Title</th><th>Category</th><th>Department</th><th>Status</th><th>SLA</th><th>Update</th></tr>
+          <tr><th>ID</th><th>Title</th><th>Category</th><th>Department</th><th>Status</th><th>SLA</th><th>Video</th><th>Update</th></tr>
         </thead>
         <tbody id="admin-tbody"></tbody>
       </table>
@@ -499,13 +499,14 @@ async function loadAdmin(){
       <td>${escapeHtml(c.department)}</td>
       <td><span class="badge" style="background:${STATUS_COLORS[c.status]}">${c.status}</span>${c.overdue?' <span style="color:var(--seal); font-size:0.7rem;">⚠ SLA</span>':''}</td>
       <td>${new Date(c.deadline).toLocaleDateString()}</td>
+      <td>${c.video_url ? `<a href="${API}${c.video_url}" target="_blank" style="color:var(--seal); font-weight:600; text-decoration:none;">View</a>` : '<span style="color:#8a8578; font-size:0.75rem;">-</span>'}</td>
       <td>
         <select onchange="updateStatus(${c.id}, this.value)">
           ${STATUS_FLOW.map(s=>`<option value="${s}" ${s===c.status?'selected':''}>${s}</option>`).join('')}
         </select>
       </td>
     </tr>
-  `).join('') || '<tr><td colspan="7" style="text-align:center; color:#8a8578; padding:24px;">No complaints yet.</td></tr>';
+  `).join('') || '<tr><td colspan="8" style="text-align:center; color:#8a8578; padding:24px;">No complaints yet.</td></tr>';
 }
 
 async function updateStatus(id, status){
@@ -545,4 +546,7 @@ if (urlParams.get('admin') === ADMIN_KEY) {
 </script>
 </body>
 </html>
+
+
+
 
