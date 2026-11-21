@@ -4,233 +4,426 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>ONOCP — One Nation, One Complaint Portal</title>
+<meta name="theme-color" content="#FF9933" />
+<meta name="description" content="File a civic complaint once. ONOCP routes it to the right department, sets a deadline, and lets you track it until it is resolved." />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --navy:#0B2545;
-    --paper:#F7F3E8;
-    --seal:#B23A2E;
-    --gold:#C89B3C;
-    --forest:#4C7A3D;
-    --ink:#2B2822;
-    --hairline: rgba(11,37,69,0.15);
-    --card:#FFFDF8;
+    --navy:#0A1F6B;          /* Ashoka chakra blue */
+    --navy-deep:#071552;
+    --saffron:#FF9933;
+    --saffron-ink:#B85C00;   /* saffron that is safe for text on white */
+    --saffron-tint:#FFF1DF;
+    --green:#138808;
+    --green-deep:#0C6A05;
+    --green-tint:#E7F5E4;
+    --danger:#C62828;
+    --ink:#171A2B;
+    --muted:#4F566F;
+    --line:rgba(10,31,107,0.16);
+    --cut:#fff;
+    --radius-lg:20px;
+    --radius-md:13px;
+    --radius-sm:9px;
+    --ls:-0.02em; --lh-body:1.55; --lh-h1:1.08; --lh-h2:1.18;
   }
-  *{box-sizing:border-box;}
+  /* Indic scripts need looser leading and no negative tracking */
+  html:not([lang="en"]):not([lang="hi-Latn"]){ --ls:0; --lh-body:1.7; --lh-h1:1.32; --lh-h2:1.38; }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
   body{
-    margin:0; background:var(--paper); color:var(--ink);
-    font-family:'IBM Plex Sans', sans-serif;
+    margin:0; background:#fff; color:var(--ink); overflow-x:hidden;
+    font-family:'Public Sans','Noto Sans Devanagari','Noto Sans Bengali','Noto Sans Tamil','Noto Sans Telugu','Noto Sans Gujarati','Noto Sans Kannada','Noto Sans Malayalam','Noto Sans Gurmukhi',system-ui,sans-serif;
+    font-size:16px; line-height:var(--lh-body); -webkit-font-smoothing:antialiased;
   }
-  h1,h2,h3{ font-family:'Source Serif 4', serif; font-weight:600; margin:0; }
-  .mono{ font-family:'IBM Plex Mono', monospace; }
+  h1,h2,h3{
+    font-family:'Baloo 2','Noto Sans Devanagari','Noto Sans Bengali','Noto Sans Tamil','Noto Sans Telugu','Noto Sans Gujarati','Noto Sans Kannada','Noto Sans Malayalam','Noto Sans Gurmukhi',sans-serif;
+    color:var(--navy); margin:0; letter-spacing:var(--ls);
+  }
+  h2{ font-size:clamp(1.75rem,3.4vw,2.4rem); font-weight:700; line-height:var(--lh-h2); }
+  h3{ font-size:1.2rem; font-weight:700; line-height:1.3; }
+  p{ margin:0; }
+  .num{ font-variant-numeric:tabular-nums; }
+  .id-text{ font-family:'JetBrains Mono',ui-monospace,monospace; font-variant-numeric:tabular-nums; font-weight:600; white-space:nowrap; }
+  :focus-visible{ outline:3px solid var(--navy); outline-offset:2px; border-radius:4px; }
 
-  header{
-    background:var(--navy); color:var(--paper);
-    padding:22px 28px; display:flex; align-items:center; justify-content:space-between;
-    flex-wrap:wrap; gap:14px;
-  }
-  .brand{ display:flex; align-items:baseline; gap:10px; }
-  .brand h1{ font-size:1.5rem; letter-spacing:0.5px; }
-  .brand span{ font-size:0.78rem; opacity:0.75; font-family:'IBM Plex Mono',monospace; }
-  nav{ display:flex; gap:4px; background:rgba(255,255,255,0.06); padding:4px; border-radius:8px; }
-  nav button{
-    background:transparent; border:none; color:var(--paper); opacity:0.7;
-    padding:9px 16px; border-radius:6px; font-family:'IBM Plex Sans'; font-size:0.88rem;
-    cursor:pointer; transition:all .15s;
-  }
-  nav button.active{ background:var(--seal); opacity:1; }
-  nav button:hover{ opacity:1; }
+  /* ---------- Flag stripe + header ---------- */
+  .flag-stripe{ height:8px; position:relative; background:linear-gradient(90deg,var(--saffron) 0 33.34%,#fff 33.34% 66.67%,var(--green) 66.67% 100%); box-shadow:inset 0 -1px 0 var(--line); }
+  .flag-stripe::after{ content:''; position:absolute; left:50%; top:-2px; width:12px; height:12px; margin-left:-6px; border-radius:50%; background:#fff; border:2px solid var(--navy); }
+  header{ background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:1000; }
+  .bar{ max-width:1080px; margin:0 auto; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; gap:14px; }
+  .brand{ display:flex; align-items:center; gap:12px; background:none; border:none; padding:0; cursor:pointer; text-align:left; font:inherit; color:inherit; }
+  .brand-mark{ width:42px; height:42px; color:var(--navy); flex-shrink:0; }
+  .brand-mark svg, .chakra-mark svg{ display:block; width:100%; height:100%; }
+  .brand-name{ font-family:'Baloo 2',sans-serif; font-weight:800; font-size:1.3rem; color:var(--navy); line-height:1.1; }
+  .brand-sub{ font-size:0.78rem; color:var(--muted); line-height:1.25; }
+  nav{ display:flex; gap:2px; overflow-x:auto; scrollbar-width:none; }
+  nav::-webkit-scrollbar{ display:none; }
+  nav button{ background:none; border:none; font:inherit; font-size:0.95rem; font-weight:500; color:var(--muted); padding:10px 14px; cursor:pointer; position:relative; white-space:nowrap; border-radius:var(--radius-sm); }
+  nav button:hover{ color:var(--navy); background:var(--saffron-tint); }
+  nav button.active{ color:var(--navy); font-weight:600; }
+  nav button.active::after{ content:''; position:absolute; left:14px; right:14px; bottom:2px; height:3px; border-radius:3px; background:var(--saffron); }
 
-  main{ max-width:1000px; margin:0 auto; padding:32px 20px 80px; }
+  /* ---------- Language switcher ---------- */
+  .lang-wrap{ position:relative; }
+  .lang-btn{ display:inline-flex; align-items:center; gap:8px; border:1.5px solid var(--line); background:#fff; color:var(--navy); padding:8px 14px; border-radius:999px; font:inherit; font-weight:600; font-size:0.9rem; cursor:pointer; }
+  .lang-btn:hover, .lang-btn[aria-expanded="true"]{ border-color:var(--navy); background:var(--saffron-tint); }
+  .lang-btn svg{ width:18px; height:18px; flex-shrink:0; }
+  .lang-panel{ position:absolute; right:0; top:calc(100% + 12px); width:min(440px,calc(100vw - 32px)); background:#fff; border:1px solid var(--line); border-radius:var(--radius-lg); padding:18px; box-shadow:0 28px 60px -22px rgba(10,31,107,0.4); z-index:1200; }
+  .lang-panel[hidden]{ display:none; }
+  .lang-panel .lang-title{ font-family:'Baloo 2','Noto Sans Devanagari',sans-serif; font-weight:700; color:var(--navy); font-size:1.05rem; margin-bottom:12px; }
+  .lang-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+  .lang-opt{ display:flex; flex-direction:column; align-items:flex-start; text-align:left; padding:10px 12px; border-radius:var(--radius-md); border:1.5px solid var(--line); background:#fff; cursor:pointer; font:inherit; color:var(--ink); }
+  .lang-opt:hover{ border-color:var(--navy); }
+  .lang-opt .native{ font-weight:600; font-size:1.02rem; color:var(--navy); line-height:1.4; }
+  .lang-opt .eng{ font-size:0.76rem; color:var(--muted); }
+  .lang-opt[aria-pressed="true"]{ border:2px solid var(--saffron); background:var(--saffron-tint); padding:9px 11px; }
+  .lang-strip{ margin-top:28px; font-size:0.9rem; color:var(--muted); }
+  .lang-chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .chip{ padding:6px 13px; border-radius:999px; border:1.5px solid var(--line); background:#fff; font:inherit; font-size:0.9rem; color:var(--navy); cursor:pointer; }
+  .chip:hover{ border-color:var(--navy); }
+  .chip[aria-pressed="true"]{ background:var(--navy); color:#fff; border-color:var(--navy); }
+
+  main{ max-width:1080px; margin:0 auto; padding:0 20px 96px; }
   .tab{ display:none; }
   .tab.active{ display:block; }
 
-  .eyebrow{ font-family:'IBM Plex Mono',monospace; font-size:0.72rem; letter-spacing:1.5px; text-transform:uppercase; color:var(--seal); margin-bottom:6px; }
-  .lede{ color:#5c5748; margin:8px 0 28px; max-width:60ch; line-height:1.5; }
+  /* ---------- Saffron band + toran (bunting) ---------- */
+  .band{ background:var(--saffron-tint); box-shadow:0 0 0 100vmax var(--saffron-tint); clip-path:inset(0 -100vmax); padding:44px 0 40px; --cut:var(--saffron-tint); }
+  .toran{ height:18px; width:100vw; margin-left:calc(50% - 50vw); margin-bottom:36px; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='18' viewBox='0 0 44 18'%3E%3Cpath d='M0 0h22L11 15z' fill='%23FF9933'/%3E%3Cpath d='M22 0h22L33 15z' fill='%23138808'/%3E%3Ccircle cx='11' cy='16' r='2' fill='%230A1F6B'/%3E%3Ccircle cx='33' cy='16' r='2' fill='%230A1F6B'/%3E%3C/svg%3E") repeat-x center top; }
+  .page-head{ max-width:62ch; }
+  .page-head p{ color:var(--muted); margin-top:10px; }
 
-  .card{ background:var(--card); border:1px solid var(--hairline); border-radius:10px; padding:24px; }
-  .grid2{ display:grid; grid-template-columns:1.1fr 0.9fr; gap:24px; }
-  @media (max-width:760px){ .grid2{ grid-template-columns:1fr; } }
+  /* ---------- Buttons ---------- */
+  .btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; font:inherit; font-weight:600; font-size:0.95rem; padding:12px 24px; border-radius:999px; border:1.5px solid transparent; cursor:pointer; transition:background .15s,border-color .15s,box-shadow .15s,transform .1s; }
+  .btn:active{ transform:translateY(1px); }
+  .btn-primary{ background:var(--saffron); color:var(--navy-deep); }
+  .btn-primary:hover{ background:#F58A1F; box-shadow:0 8px 20px -8px rgba(255,153,51,0.9); }
+  .btn-quiet{ background:#fff; color:var(--navy); border-color:var(--line); }
+  .btn-quiet:hover{ border-color:var(--navy); }
+  .btn-danger{ background:var(--danger); color:#fff; }
+  .btn-sm{ padding:8px 16px; font-size:0.85rem; }
+  .btn-block{ width:100%; margin-top:22px; padding:14px 22px; }
 
-  label{ display:block; font-size:0.82rem; font-weight:600; margin:16px 0 6px; color:var(--navy); }
-  label:first-child{ margin-top:0; }
-  input[type=text], textarea, select{
-    width:100%; padding:10px 12px; border:1px solid var(--hairline); border-radius:6px;
-    font-family:'IBM Plex Sans'; font-size:0.92rem; background:#fff; color:var(--ink);
-  }
-  textarea{ min-height:90px; resize:vertical; }
-  #map-pick, #heatmap{ height:280px; border-radius:8px; margin-top:8px; border:1px solid var(--hairline); }
-  #heatmap{ height:440px; }
+  /* ---------- Hero ---------- */
+  .hero{ display:grid; grid-template-columns:1.05fr 0.95fr; gap:48px; align-items:center; padding:12px 0; }
+  .hero h1{ font-size:clamp(2.3rem,5.4vw,3.8rem); font-weight:800; line-height:var(--lh-h1); }
+  .hero .sub{ margin-top:18px; font-size:1.1rem; color:var(--muted); max-width:46ch; }
+  .hero-actions{ display:flex; gap:12px; flex-wrap:wrap; margin-top:28px; }
+  .live-line{ margin-top:22px; font-size:0.92rem; color:var(--muted); min-height:1.4em; }
+  .live-line b{ color:var(--green-deep); font-weight:700; }
+  .sample-wrap{ position:relative; }
+  .sample-wrap > *:not(.chakra-mark){ position:relative; z-index:1; }
+  .sample-note{ font-size:0.84rem; color:var(--muted); margin:0 0 10px 4px; }
+  .chakra-mark{ position:absolute; z-index:0; right:-30px; top:-90px; width:300px; height:300px; color:var(--navy); opacity:0.1; pointer-events:none; }
+  .chakra-mark svg{ animation:spin 2.4s cubic-bezier(.16,.8,.24,1) .2s both; }
+  @keyframes spin{ from{ transform:rotate(-200deg); opacity:0; } to{ transform:none; opacity:1; } }
 
-  button.primary{
-    margin-top:20px; background:var(--seal); color:#fff; border:none; padding:12px 22px;
-    border-radius:6px; font-family:'IBM Plex Sans'; font-weight:600; font-size:0.92rem; cursor:pointer;
-  }
-  button.primary:hover{ background:#96302a; }
-
-  /* Ticket / receipt — signature element */
-  .ticket{
-    background:var(--card); border:1px solid var(--hairline); border-radius:10px;
-    position:relative; overflow:hidden;
-  }
-  .ticket-top{ padding:22px 24px 16px; }
-  .ticket-id{ font-family:'IBM Plex Mono'; font-size:1.1rem; color:var(--navy); letter-spacing:1px; }
-  .perforation{
-    border-top:2px dashed var(--hairline); position:relative; margin:0 0;
-  }
-  .perforation::before, .perforation::after{
-    content:''; position:absolute; top:-9px; width:18px; height:18px; background:var(--paper);
-    border-radius:50%;
-  }
-  .perforation::before{ left:-9px; }
-  .perforation::after{ right:-9px; }
-  .ticket-bottom{ padding:16px 24px 22px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; }
-
-  .seal-badge{
-    width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    color:#fff; font-family:'IBM Plex Mono'; font-size:0.62rem; text-align:center; font-weight:600;
-    border:3px double rgba(255,255,255,0.6); flex-shrink:0; letter-spacing:0.3px;
-  }
-
-  .stepper{ display:flex; gap:0; margin-top:14px; }
-  .step{ flex:1; text-align:center; font-size:0.72rem; padding-top:10px; position:relative; color:#8a8578; }
-  .step::before{
-    content:''; position:absolute; top:0; left:0; right:0; height:3px; background:var(--hairline);
-  }
+  /* ---------- Ticket ---------- */
+  .ticket{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-lg); position:relative; overflow:hidden; box-shadow:0 26px 50px -32px rgba(10,31,107,0.45); }
+  .ticket::before{ content:''; display:block; height:6px; background:linear-gradient(90deg,var(--saffron) 0 33.34%,#fff 33.34% 66.67%,var(--green) 66.67% 100%); box-shadow:inset 0 -1px 0 var(--line); }
+  .ticket-top{ padding:22px 26px 20px; }
+  .ticket-label{ font-size:0.85rem; color:var(--muted); }
+  .ticket-id{ font-size:1.2rem; color:var(--navy); margin-top:2px; }
+  .ticket-top h3{ margin-top:10px; }
+  .route{ margin-top:6px; color:var(--muted); font-size:0.92rem; }
+  .route b{ color:var(--ink); font-weight:600; }
+  .perforation{ border-top:2px dashed var(--line); position:relative; }
+  .perforation::before,.perforation::after{ content:''; position:absolute; top:-11px; width:22px; height:22px; background:var(--cut); border-radius:50%; border:1px solid var(--line); }
+  .perforation::before{ left:-12px; clip-path:inset(0 0 0 50%); }
+  .perforation::after{ right:-12px; clip-path:inset(0 50% 0 0); }
+  .ticket-bottom{ padding:18px 26px 22px; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
+  .stamp{ min-width:88px; padding:7px 14px; border-radius:999px; color:#fff; font-weight:600; font-size:0.85rem; text-align:center; }
+  .deadline{ text-align:right; font-size:0.86rem; color:var(--muted); }
+  .deadline .breach{ color:var(--danger); font-weight:700; }
+  .deadline .ok{ color:var(--green-deep); font-weight:700; }
+  .stepper{ display:flex; gap:6px; margin-top:20px; }
+  .step{ flex:1; font-size:0.78rem; color:#7A8099; padding-top:10px; position:relative; text-align:left; line-height:1.35; }
+  .step::before{ content:''; position:absolute; top:0; left:0; right:0; height:4px; border-radius:4px; background:rgba(10,31,107,0.12); }
   .step.done{ color:var(--navy); font-weight:600; }
-  .step.done::before{ background:var(--seal); }
-  .step.current::before{ background:var(--gold); }
+  .step.done::before{ background:var(--navy); }
+  .step.current::before{ background:var(--saffron); }
+  .hero .step::before{ transform-origin:left; animation:fill .5s ease-out backwards; }
+  .hero .step:nth-child(1)::before{ animation-delay:.6s; }
+  .hero .step:nth-child(2)::before{ animation-delay:1s; }
+  @keyframes fill{ from{ transform:scaleX(0); } }
 
-  table{ width:100%; border-collapse:collapse; font-size:0.86rem; }
-  th{ text-align:left; font-family:'IBM Plex Mono'; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.5px; color:#8a8578; padding:8px 10px; border-bottom:1px solid var(--hairline); }
-  td{ padding:10px; border-bottom:1px solid var(--hairline); vertical-align:top; }
-  .badge{ display:inline-block; padding:3px 9px; border-radius:20px; font-size:0.72rem; font-weight:600; color:#fff; }
-  .filters{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
-  .filters select{ width:auto; }
+  /* ---------- How it works ---------- */
+  .how-grid{ display:grid; grid-template-columns:repeat(3,1fr); margin-top:26px; border-top:2px solid var(--green); }
+  .how-step{ padding:26px 28px 6px 0; }
+  .how-step + .how-step{ padding-left:28px; border-left:1px solid var(--line); }
+  .how-step .n{ font-family:'Baloo 2',sans-serif; font-size:2.8rem; font-weight:800; color:var(--saffron-ink); line-height:1; }
+  .how-step h3{ margin-top:10px; }
+  .how-step p{ margin-top:8px; color:var(--muted); font-size:0.95rem; max-width:34ch; }
 
+  /* ---------- Cards & forms ---------- */
+  .card{ background:#fff; border:1px solid var(--line); border-radius:var(--radius-lg); padding:28px; }
+  .card.flat{ padding:0; overflow:hidden; }
+  .grid2{ display:grid; grid-template-columns:1.1fr 0.9fr; gap:28px; align-items:start; }
+  .sticky{ position:sticky; top:96px; }
+  fieldset{ border:none; padding:0; margin:0 0 6px; }
+  fieldset + fieldset{ margin-top:26px; padding-top:24px; border-top:1px solid var(--line); }
+  legend{ float:left; width:100%; font-family:'Baloo 2','Noto Sans Devanagari',sans-serif; font-weight:700; font-size:1.15rem; color:var(--navy); padding:0; margin:0 0 2px; }
+  legend + label{ clear:both; }
+  label{ display:block; font-size:0.9rem; font-weight:600; margin:16px 0 6px; color:var(--ink); }
+  .optional{ font-weight:400; color:var(--muted); }
+  input[type=text],textarea,select{ width:100%; padding:12px 14px; border:1.5px solid var(--line); border-radius:var(--radius-md); font:inherit; font-size:0.97rem; background:#fff; color:var(--ink); transition:border-color .15s,box-shadow .15s; }
+  input::placeholder,textarea::placeholder{ color:#80869C; }
+  input[type=text]:focus,textarea:focus,select:focus{ outline:none; border-color:var(--navy); box-shadow:0 0 0 4px rgba(255,153,51,0.35); }
+  textarea{ min-height:110px; resize:vertical; }
+  .hint{ font-size:0.85rem; color:var(--muted); margin-top:8px; }
+  #map-pick,#heatmap{ height:300px; border-radius:var(--radius-md); margin-top:8px; border:1.5px solid var(--line); z-index:0; background:#EEF1F8; }
+  #heatmap{ height:min(540px,70vh); }
+  .video-box{ border:1.5px dashed rgba(10,31,107,0.3); border-radius:var(--radius-md); padding:16px; margin-top:6px; background:var(--saffron-tint); }
+  .video-box video{ width:100%; border-radius:var(--radius-sm); background:#000; max-height:260px; }
+  .video-actions{ margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; }
+  .msg{ padding:12px 16px; border-radius:var(--radius-md); font-size:0.92rem; margin-top:16px; }
+  .msg.error{ background:#FDECEA; color:#9E1C1C; }
+  .msg.info{ background:var(--saffron-tint); color:#7A4B00; }
+  .empty-slot{ border:1.5px dashed rgba(10,31,107,0.3); border-radius:var(--radius-lg); padding:36px 28px; color:var(--muted); background:var(--saffron-tint); }
+  .empty-slot h3{ margin-bottom:6px; }
+  .track-card{ max-width:460px; }
+
+  /* ---------- Admin ---------- */
   .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
-  @media (max-width:760px){ .stats{ grid-template-columns:repeat(2,1fr); } }
-  .stat{ background:var(--card); border:1px solid var(--hairline); border-radius:10px; padding:16px; }
-  .stat .num{ font-family:'Source Serif 4'; font-size:1.9rem; color:var(--navy); }
-  .stat .lbl{ font-size:0.74rem; color:#8a8578; font-family:'IBM Plex Mono'; text-transform:uppercase; }
-  .stat.overdue .num{ color:var(--seal); }
+  .stat{ background:#fff; border:1px solid var(--line); border-top:5px solid var(--navy); border-radius:var(--radius-md); padding:16px 20px 18px; }
+  .stat.pending{ border-top-color:var(--saffron); }
+  .stat.resolved{ border-top-color:var(--green); }
+  .stat.overdue{ border-top-color:var(--danger); }
+  .stat .v{ font-family:'Baloo 2',sans-serif; font-size:2.3rem; font-weight:800; color:var(--ink); line-height:1.2; }
+  .stat .l{ font-size:0.88rem; color:var(--muted); }
+  .filters{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+  .filters select{ width:auto; min-width:170px; }
+  table{ width:100%; border-collapse:collapse; font-size:0.92rem; min-width:760px; }
+  th{ text-align:left; font-weight:600; font-size:0.82rem; color:var(--navy); padding:14px 16px; border-bottom:2px solid var(--saffron); background:#F6F7FC; white-space:nowrap; }
+  td{ padding:14px 16px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover td{ background:var(--saffron-tint); }
+  td select{ padding:8px 10px; font-size:0.88rem; min-width:130px; }
+  .badge{ display:inline-block; padding:3px 11px; border-radius:999px; font-size:0.8rem; font-weight:600; color:#fff; white-space:nowrap; }
+  .sla-flag{ display:block; color:var(--danger); font-size:0.78rem; font-weight:700; margin-top:4px; }
+  .link{ color:var(--navy); font-weight:600; text-decoration:underline; text-underline-offset:3px; }
 
-  .msg{ padding:10px 14px; border-radius:6px; font-size:0.85rem; margin-top:14px; }
-  .msg.error{ background:#fbe6e3; color:var(--seal); }
-  .hint{ font-size:0.78rem; color:#8a8578; margin-top:6px; }
-  .legend{ display:flex; gap:14px; flex-wrap:wrap; margin-top:12px; font-size:0.78rem; }
-  .legend span{ display:inline-flex; align-items:center; gap:6px; }
-  .dot{ width:10px; height:10px; border-radius:50%; display:inline-block; }
+  /* ---------- Heatmap ---------- */
+  .legend{ display:flex; gap:10px 18px; flex-wrap:wrap; margin-top:16px; font-size:0.9rem; color:var(--muted); }
+  .legend span{ display:inline-flex; align-items:center; gap:8px; }
+  .dot{ width:12px; height:12px; border-radius:50%; display:inline-block; }
+
+  footer{ background:var(--green-tint); border-top:4px solid var(--green); color:var(--muted); font-size:0.88rem; }
+  .foot-inner{ max-width:1080px; margin:0 auto; padding:26px 20px 34px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+
+  @media (max-width:860px){
+    .hero{ grid-template-columns:1fr; gap:36px; }
+    .chakra-mark{ width:220px; height:220px; right:-20px; top:-60px; }
+    .grid2{ grid-template-columns:1fr; }
+    .sticky{ position:static; }
+    .how-grid{ grid-template-columns:1fr; }
+    .how-step + .how-step{ padding-left:0; border-left:none; border-top:1px solid var(--line); }
+    .how-step{ padding:22px 0; }
+    .stats{ grid-template-columns:repeat(2,1fr); }
+    .bar{ flex-wrap:wrap; }
+    .brand{ order:1; } .lang-wrap{ order:2; } nav{ order:3; width:100%; }
+    .brand-sub{ display:none; }
+    .band{ padding:30px 0 28px; }
+  }
+  @media (max-width:480px){
+    .card{ padding:20px; }
+    .lang-grid{ grid-template-columns:1fr 1fr; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{ animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+  }
 </style>
 </head>
 <body>
 
+<div class="flag-stripe" aria-hidden="true"></div>
 <header>
-  <div class="brand">
-    <h1>ONOCP</h1>
-    <span>One Nation, One Complaint Portal</span>
+  <div class="bar">
+    <button class="brand" type="button" data-go="home" data-i18n-aria="aria_home">
+      <span class="brand-mark" data-chakra aria-hidden="true"></span>
+      <span>
+        <span class="brand-name">ONOCP</span><br/>
+        <span class="brand-sub" data-i18n="brand_sub"></span>
+      </span>
+    </button>
+    <nav aria-label="Main">
+      <button data-tab="home" class="active" data-i18n="nav_home"></button>
+      <button data-tab="submit" data-i18n="nav_submit"></button>
+      <button data-tab="track" data-i18n="nav_track"></button>
+      <button data-tab="heatmap" data-i18n="nav_heatmap"></button>
+      <button data-tab="admin" id="admin-nav-btn" style="display:none;" data-i18n="nav_admin"></button>
+    </nav>
+    <div class="lang-wrap">
+      <button class="lang-btn" id="lang-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="lang-panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19M12 2.5c2.8 2.7 4.2 5.9 4.2 9.5s-1.4 6.8-4.2 9.5c-2.8-2.7-4.2-5.9-4.2-9.5S9.2 5.2 12 2.5z"/></svg>
+        <span id="lang-current">English</span>
+      </button>
+      <div class="lang-panel" id="lang-panel" hidden>
+        <div class="lang-title" data-i18n="lang_title"></div>
+        <div class="lang-grid" id="lang-grid-panel"></div>
+      </div>
+    </div>
   </div>
-  <nav>
-    <button data-tab="submit" class="active">Submit</button>
-    <button data-tab="track">Track</button>
-    <button data-tab="admin" id="admin-nav-btn" style="display:none;">Admin</button>
-    <button data-tab="heatmap">Heatmap</button>
-  </nav>
 </header>
 
 <main>
 
+  <!-- HOME -->
+  <section class="tab active" id="tab-home">
+    <div class="band">
+      <div class="hero">
+        <div>
+          <h1 data-i18n="hero_h1"></h1>
+          <p class="sub" data-i18n="hero_sub"></p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" type="button" data-go="submit" data-i18n="cta_file"></button>
+            <button class="btn btn-quiet" type="button" data-go="track" data-i18n="cta_track"></button>
+          </div>
+          <p class="live-line" id="live-line" aria-live="polite"></p>
+          <div class="lang-strip">
+            <span data-i18n="lang_strip"></span>
+            <div class="lang-chips" id="lang-grid-strip"></div>
+          </div>
+        </div>
+
+        <div class="sample-wrap">
+          <div class="chakra-mark" data-chakra aria-hidden="true"></div>
+          <p class="sample-note" data-i18n="sample_note"></p>
+          <div class="ticket">
+            <div class="ticket-top">
+              <div class="ticket-label" data-i18n="receipt"></div>
+              <div class="ticket-id id-text">ONOCP-7QX4RT</div>
+              <h3 data-i18n="sample_title"></h3>
+              <div class="route" data-i18n-html="sample_route"></div>
+              <div class="stepper">
+                <div class="step done" data-i18n="st_Pending"></div>
+                <div class="step done current" data-i18n="st_Assigned"></div>
+                <div class="step" data-i18n="st_In Progress"></div>
+                <div class="step" data-i18n="st_Resolved"></div>
+              </div>
+            </div>
+            <div class="perforation"></div>
+            <div class="ticket-bottom">
+              <span class="stamp" style="background:#1D4ED8;" data-i18n="st_Assigned"></span>
+              <div class="deadline"><span data-i18n="sample_deadline"></span><br/><span class="ok" data-i18n="on_track"></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="toran" aria-hidden="true"></div>
+
+    <div class="how">
+      <h2 data-i18n="how_h"></h2>
+      <div class="how-grid">
+        <div class="how-step"><div class="n">1</div><h3 data-i18n="how1_t"></h3><p data-i18n="how1_p"></p></div>
+        <div class="how-step"><div class="n">2</div><h3 data-i18n="how2_t"></h3><p data-i18n="how2_p"></p></div>
+        <div class="how-step"><div class="n">3</div><h3 data-i18n="how3_t"></h3><p data-i18n="how3_p"></p></div>
+      </div>
+    </div>
+  </section>
+
   <!-- SUBMIT -->
-  <section class="tab active" id="tab-submit">
-    <div class="eyebrow">File a complaint</div>
-    <h2>Ek hi jagah, sahi department tak</h2>
-    <p class="lede">Apni problem describe karo — system automatically sahi category aur department detect karke route karega.</p>
+  <section class="tab" id="tab-submit">
+    <div class="band"><div class="page-head"><h2 data-i18n="submit_h"></h2><p data-i18n="submit_p"></p></div></div>
+    <div class="toran" aria-hidden="true"></div>
 
     <div class="grid2">
       <div class="card">
-        <label>Title</label>
-        <input type="text" id="f-title" placeholder="e.g. Pothole near market road" />
+        <fieldset>
+          <legend data-i18n="fs_what"></legend>
+          <label for="f-title" data-i18n="f_title"></label>
+          <input type="text" id="f-title" data-i18n-ph="f_title_ph" />
 
-        <label>Description</label>
-        <textarea id="f-desc" placeholder="Problem ko detail me batao..."></textarea>
+          <label for="f-desc" data-i18n="f_desc"></label>
+          <textarea id="f-desc" data-i18n-ph="f_desc_ph"></textarea>
 
-        <label>Category (optional override)</label>
-        <select id="f-category"><option value="">Auto-detect</option></select>
+          <label for="f-category"><span data-i18n="f_cat"></span> <span class="optional" data-i18n="f_cat_note"></span></label>
+          <select id="f-category"><option value="" data-i18n="cat_auto"></option></select>
+        </fieldset>
 
-        <label>Location (area / landmark)</label>
-        <input type="text" id="f-location" placeholder="e.g. Sector 12, Near Bus Stand" />
+        <fieldset>
+          <legend data-i18n="fs_where"></legend>
+          <label for="f-location" data-i18n="f_loc"></label>
+          <input type="text" id="f-location" data-i18n-ph="f_loc_ph" />
 
-        <label>Pin exact location on map (click to set)</label>
-        <div id="map-pick"></div>
-        <div class="hint" id="latlng-hint">Location not set — click on map</div>
+          <label id="map-label"><span data-i18n="f_pin"></span> <span class="optional" data-i18n="f_pin_note"></span></label>
+          <div id="map-pick" role="application" aria-labelledby="map-label"></div>
+          <div class="hint" id="latlng-hint"></div>
+        </fieldset>
 
-        <label>Capture Video Complaint (optional)</label>
-        <div class="card" style="padding: 14px; margin-top: 6px;">
-          <video id="video-preview" autoplay muted style="display:none; width:100%; border-radius:6px; background:#000; max-height:240px;"></video>
-          <video id="video-playback" controls style="display:none; width:100%; border-radius:6px; background:#000; max-height:240px;"></video>
-          <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
-            <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px;" id="btn-start-camera" type="button">Start Camera</button>
-            <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px; display:none; background: #2E86AB;" id="btn-switch-camera" type="button">Switch Camera</button>
-            <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px; display:none; background: var(--seal);" id="btn-record" type="button">Record</button>
-            <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px; display:none; background: var(--seal);" id="btn-stop" type="button">Stop</button>
-            <button class="primary" style="margin-top:0; font-size: 0.8rem; padding: 8px 16px; display:none; background: #5c5748;" id="btn-retake" type="button">Retake</button>
+        <fieldset>
+          <legend data-i18n="fs_extras"></legend>
+          <label><span data-i18n="f_video"></span> <span class="optional" data-i18n="opt"></span></label>
+          <div class="video-box">
+            <video id="video-preview" autoplay muted playsinline style="display:none;"></video>
+            <video id="video-playback" controls playsinline style="display:none;"></video>
+            <div class="video-actions">
+              <button class="btn btn-quiet btn-sm" id="btn-start-camera" type="button" data-i18n="cam_start"></button>
+              <button class="btn btn-quiet btn-sm" id="btn-switch-camera" type="button" style="display:none;" data-i18n="cam_switch"></button>
+              <button class="btn btn-danger btn-sm" id="btn-record" type="button" style="display:none;" data-i18n="cam_record"></button>
+              <button class="btn btn-danger btn-sm" id="btn-stop" type="button" style="display:none;" data-i18n="cam_stop"></button>
+              <button class="btn btn-quiet btn-sm" id="btn-retake" type="button" style="display:none;" data-i18n="cam_retake"></button>
+            </div>
+            <div class="hint" data-i18n="video_hint"></div>
           </div>
-          <div class="hint">Record a short video explaining the problem.</div>
-        </div>
 
-        <label>Contact (optional — email/phone, for updates)</label>
-        <input type="text" id="f-contact" placeholder="optional" />
+          <label for="f-contact"><span data-i18n="f_contact"></span> <span class="optional" data-i18n="f_contact_note"></span></label>
+          <input type="text" id="f-contact" data-i18n-ph="f_contact_ph" />
+        </fieldset>
 
-        <button class="primary" onclick="submitComplaint()">Submit Complaint</button>
-        <div id="submit-msg"></div>
+        <button class="btn btn-primary btn-block" type="button" onclick="submitComplaint()" data-i18n="btn_submit"></button>
+        <div id="submit-msg" aria-live="polite"></div>
       </div>
 
-      <div id="ticket-slot">
-        <div class="card" style="color:#8a8578; font-size:0.88rem;">
-          Submit karne ke baad tumhara complaint ticket yahan dikhega — tracking ID ke saath.
-        </div>
+      <div class="sticky" id="ticket-slot">
+        <div class="empty-slot"><h3 data-i18n="slot_h"></h3><p data-i18n="slot_p"></p></div>
       </div>
     </div>
   </section>
 
   <!-- TRACK -->
   <section class="tab" id="tab-track">
-    <div class="eyebrow">Check status</div>
-    <h2>Apni complaint track karo</h2>
-    <p class="lede">Tracking ID daalo jo submit karte waqt mila tha.</p>
-    <div class="card" style="max-width:420px;">
-      <label>Tracking ID</label>
-      <input type="text" id="track-input" placeholder="ONOCP-XXXXXX" class="mono" />
-      <button class="primary" onclick="trackComplaint()">Track</button>
-      <div id="track-msg"></div>
+    <div class="band"><div class="page-head"><h2 data-i18n="track_h"></h2><p data-i18n="track_p"></p></div></div>
+    <div class="toran" aria-hidden="true"></div>
+    <div class="card track-card">
+      <label for="track-input" style="margin-top:0;" data-i18n="f_track"></label>
+      <input type="text" id="track-input" placeholder="ONOCP-XXXXXX" class="id-text" />
+      <button class="btn btn-primary btn-block" type="button" onclick="trackComplaint()" data-i18n="btn_track"></button>
+      <div id="track-msg" aria-live="polite"></div>
     </div>
-    <div id="track-result" style="margin-top:20px;"></div>
+    <div id="track-result" style="margin-top:24px; max-width:560px;"></div>
   </section>
 
   <!-- ADMIN -->
   <section class="tab" id="tab-admin">
-    <div class="eyebrow">Department view</div>
-    <h2>Admin Dashboard</h2>
-    <p class="lede">Sab complaints, status update, aur SLA breach tracking.</p>
+    <div class="band"><div class="page-head"><h2 data-i18n="admin_h"></h2><p data-i18n="admin_p"></p></div></div>
+    <div class="toran" aria-hidden="true"></div>
 
     <div class="stats" id="stats-row"></div>
 
     <div class="filters">
-      <select id="filter-status" onchange="loadAdmin()">
-        <option value="">All statuses</option>
+      <select id="filter-status" onchange="loadAdmin()" data-i18n-aria="aria_status">
+        <option value="" data-i18n="all_status"></option>
       </select>
-      <select id="filter-department" onchange="loadAdmin()">
-        <option value="">All departments</option>
+      <select id="filter-department" onchange="loadAdmin()" data-i18n-aria="aria_dept">
+        <option value="" data-i18n="all_dept"></option>
       </select>
-      <button class="primary" style="margin-top:0;" onclick="loadAdmin()">Refresh</button>
+      <button class="btn btn-quiet btn-sm" type="button" onclick="loadAdmin()" data-i18n="btn_refresh"></button>
     </div>
 
-    <div class="card" style="padding:0; overflow-x:auto;">
+    <div class="card flat" style="overflow-x:auto;">
       <table>
         <thead>
-          <tr><th>ID</th><th>Title</th><th>Category</th><th>Department</th><th>Status</th><th>SLA</th><th>Video</th><th>Update</th></tr>
+          <tr>
+            <th data-i18n="th_id"></th><th data-i18n="th_title"></th><th data-i18n="th_cat"></th><th data-i18n="th_dept"></th>
+            <th data-i18n="th_status"></th><th data-i18n="th_deadline"></th><th data-i18n="th_video"></th><th data-i18n="th_update"></th>
+          </tr>
         </thead>
         <tbody id="admin-tbody"></tbody>
       </table>
@@ -239,207 +432,843 @@
 
   <!-- HEATMAP -->
   <section class="tab" id="tab-heatmap">
-    <div class="eyebrow">Public view</div>
-    <h2>Complaint Heatmap</h2>
-    <p class="lede">Kahan par kis type ki complaints zyada aa rahi hain — public transparency ke liye.</p>
+    <div class="band"><div class="page-head"><h2 data-i18n="heat_h"></h2><p data-i18n="heat_p"></p></div></div>
+    <div class="toran" aria-hidden="true"></div>
     <div id="heatmap"></div>
     <div class="legend" id="heatmap-legend"></div>
   </section>
 
 </main>
 
+<footer>
+  <div class="foot-inner">
+    <span data-i18n="foot_l"></span>
+    <span data-i18n="foot_r"></span>
+  </div>
+</footer>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const API = "https://onocp.onrender.com";
-const STATUS_COLORS = { "Pending":"#C89B3C", "Assigned":"#2E86AB", "In Progress":"#7A4E9E", "Resolved":"#4C7A3D" };
-const STATUS_FLOW = ["Pending","Assigned","In Progress","Resolved"];
+  /* If unpkg is blocked or slow, try other CDNs before the app script runs. */
+  window.L || document.write('<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"><\/script>');
+  window.L || document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"><\/script>');
+</script>
+<script>
+const T = {};
+/* ===== English (base, also the fallback for any missing key) ===== */
+T['en'] = {
+brand_sub:"One Nation, One Complaint Portal", aria_home:"ONOCP home",
+nav_home:"Home", nav_submit:"File a complaint", nav_track:"Track", nav_heatmap:"Heatmap", nav_admin:"Admin",
+lang_title:"Choose your language", lang_strip:"Available in 11 languages:",
+hero_h1:"File it once. It reaches the right department.",
+hero_sub:"Describe the problem and drop a pin. ONOCP picks the department, sets a deadline it has to meet, and gives you an ID to follow it until it is resolved.",
+cta_file:"File a complaint", cta_track:"Track a complaint",
+live_line:"<b>{t}</b> complaints filed so far, <b>{r}</b> resolved.",
+sample_note:"This is the receipt you get after filing. Example:", receipt:"Complaint receipt",
+sample_title:"Pothole near market road", sample_route:"Roads &amp; Potholes sent to <b>Public Works Department</b>",
+sample_deadline:"Resolve by 3 days from filing", on_track:"On track",
+st_Pending:"Pending", st_Assigned:"Assigned", "st_In Progress":"In Progress", st_Resolved:"Resolved",
+how_h:"From complaint to resolution",
+how1_t:"Describe it", how1_p:"Write a title and a few lines, pin the spot on the map, and add a short video if it helps.",
+how2_t:"It is routed", how2_p:"The category is detected from your words, then sent to the department that owns it with an SLA deadline.",
+how3_t:"You follow it", how3_p:"Use your tracking ID any time. If a deadline is missed, the complaint is flagged and escalated.",
+submit_h:"File a complaint", submit_p:"Tell us what is wrong. The category and department are detected automatically.",
+fs_what:"What happened", f_title:"Title", f_title_ph:"e.g. Pothole near market road",
+f_desc:"Description", f_desc_ph:"Describe the problem in detail...",
+f_cat:"Category", f_cat_note:"(optional, leave on Auto-detect)", cat_auto:"Auto-detect",
+fs_where:"Where", f_loc:"Area or landmark", f_loc_ph:"e.g. Sector 12, near Bus Stand",
+f_pin:"Pin the exact spot", f_pin_note:"(click the map)",
+fs_extras:"Extras", f_video:"Video", opt:"(optional)",
+cam_start:"Start camera", cam_switch:"Switch camera", cam_record:"Record", cam_stop:"Stop", cam_retake:"Retake",
+video_hint:"Record a short video explaining the problem.",
+f_contact:"Contact", f_contact_note:"(email or phone, for updates)", f_contact_ph:"Optional",
+btn_submit:"Submit complaint",
+slot_h:"Your receipt appears here", slot_p:"After you submit, you get a tracking ID, the department it was sent to, and a deadline. Save the ID to check progress later.",
+track_h:"Track a complaint", track_p:"Enter the tracking ID you got when you filed.", f_track:"Tracking ID", btn_track:"Track",
+admin_h:"Admin dashboard", admin_p:"All complaints, status updates, and SLA breaches in one place.",
+all_status:"All statuses", all_dept:"All departments", aria_status:"Filter by status", aria_dept:"Filter by department", btn_refresh:"Refresh",
+th_id:"ID", th_title:"Title", th_cat:"Category", th_dept:"Department", th_status:"Status", th_deadline:"Deadline", th_video:"Video", th_update:"Update status",
+stat_total:"Total complaints", stat_pending:"Pending", stat_resolved:"Resolved", stat_overdue:"SLA breached",
+heat_h:"Complaint heatmap", heat_p:"Where each kind of complaint is coming from. Public, for transparency.",
+foot_l:"ONOCP is a civic-tech prototype built by Krishnakanth.", foot_r:"Map data © OpenStreetMap contributors",
+hint_nopin:"No pin yet. Click the map to set one.", hint_pinset:"Pin set at {c}",
+hint_map_fail:"The pin is optional. You can still submit without it.",
+map_fail:"The map could not load. Refresh the page. You can still file a complaint with an area or landmark.",
+heat_fail:"The heatmap could not load. Try again.", heat_empty:"No geo-tagged complaints yet. Pin a location when you file one and it will appear here.",
+err_short:"Add a little more detail to the title and description.",
+err_conn:"Could not reach the server. Try again in a moment (a free server can take a minute to wake up).",
+err_conn_short:"Could not reach the server.", uploading:"Uploading video...",
+err_id_empty:"Enter a tracking ID first, like ONOCP-AB12CD.", err_id_notfound:"That tracking ID was not found. Check it and try again.",
+cam_denied:"Camera permission denied or not available.",
+sla_breached:"SLA breached", sla_breached_esc:"SLA breached, escalated", resolve_by:"Resolve by {d}", none:"None", view:"View",
+no_complaints:"No complaints yet. Filed complaints will show up here.", aria_update:"Update status for {id}"
+};
 
-// ---- Tabs ----
-document.querySelectorAll('nav button').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
-    if(btn.dataset.tab==='admin') loadAdmin();
-    if(btn.dataset.tab==='heatmap') loadHeatmap();
-    if(btn.dataset.tab==='submit') setTimeout(()=>pickMap.invalidateSize(),50);
-  });
+/* ===== हिन्दी ===== */
+T['hi'] = {
+brand_sub:"एक राष्ट्र, एक शिकायत पोर्टल", aria_home:"ONOCP मुखपृष्ठ",
+nav_home:"मुखपृष्ठ", nav_submit:"शिकायत दर्ज करें", nav_track:"ट्रैक करें", nav_heatmap:"हीटमैप", nav_admin:"एडमिन",
+lang_title:"अपनी भाषा चुनें", lang_strip:"11 भाषाओं में उपलब्ध:",
+hero_h1:"एक बार दर्ज करें। सही विभाग तक पहुँचेगी।",
+hero_sub:"समस्या लिखें और नक्शे पर जगह चुनें। ONOCP सही विभाग तय करता है, समय-सीमा लगाता है और आपको एक आईडी देता है, जिससे आप हल होने तक देख सकते हैं।",
+cta_file:"शिकायत दर्ज करें", cta_track:"शिकायत ट्रैक करें",
+live_line:"अब तक <b>{t}</b> शिकायतें दर्ज हुईं, <b>{r}</b> हल हुईं।",
+sample_note:"दर्ज करने के बाद आपको ऐसी रसीद मिलती है। उदाहरण:", receipt:"शिकायत रसीद",
+sample_title:"बाज़ार रोड के पास गड्ढा", sample_route:"सड़क और गड्ढे, भेजा गया: <b>लोक निर्माण विभाग</b>",
+sample_deadline:"दर्ज होने से 3 दिन में हल करना है", on_track:"समय पर",
+st_Pending:"लंबित", st_Assigned:"सौंपी गई", "st_In Progress":"कार्य जारी", st_Resolved:"हल हुई",
+how_h:"शिकायत से समाधान तक",
+how1_t:"समस्या बताएँ", how1_p:"शीर्षक और कुछ पंक्तियाँ लिखें, नक्शे पर जगह चुनें और चाहें तो छोटा वीडियो जोड़ें।",
+how2_t:"सही जगह भेजी जाती है", how2_p:"आपके शब्दों से श्रेणी पहचानी जाती है और ज़िम्मेदार विभाग को समय-सीमा के साथ भेजी जाती है।",
+how3_t:"आप ट्रैक करें", how3_p:"अपनी ट्रैकिंग आईडी से कभी भी स्थिति देखें। समय-सीमा चूकने पर शिकायत चिह्नित होकर ऊपर भेजी जाती है।",
+submit_h:"शिकायत दर्ज करें", submit_p:"बताइए क्या समस्या है। श्रेणी और विभाग अपने आप तय हो जाएँगे।",
+fs_what:"क्या हुआ", f_title:"शीर्षक", f_title_ph:"जैसे: बाज़ार रोड के पास गड्ढा",
+f_desc:"विवरण", f_desc_ph:"समस्या विस्तार से लिखें...",
+f_cat:"श्रेणी", f_cat_note:"(वैकल्पिक, अपने आप पहचान पर छोड़ दें)", cat_auto:"अपने आप पहचानें",
+fs_where:"कहाँ", f_loc:"इलाका या पहचान की जगह", f_loc_ph:"जैसे: सेक्टर 12, बस स्टैंड के पास",
+f_pin:"सही जगह चुनें", f_pin_note:"(नक्शे पर क्लिक करें)",
+fs_extras:"अतिरिक्त", f_video:"वीडियो", opt:"(वैकल्पिक)",
+cam_start:"कैमरा शुरू करें", cam_switch:"कैमरा बदलें", cam_record:"रिकॉर्ड", cam_stop:"रोकें", cam_retake:"दोबारा लें",
+video_hint:"समस्या समझाने वाला छोटा वीडियो रिकॉर्ड करें।",
+f_contact:"संपर्क", f_contact_note:"(ईमेल या फ़ोन, अपडेट के लिए)", f_contact_ph:"वैकल्पिक",
+btn_submit:"शिकायत जमा करें",
+slot_h:"आपकी रसीद यहाँ दिखेगी", slot_p:"जमा करने के बाद आपको ट्रैकिंग आईडी, संबंधित विभाग और समय-सीमा मिलेगी। बाद में स्थिति देखने के लिए आईडी सहेज लें।",
+track_h:"शिकायत ट्रैक करें", track_p:"दर्ज करते समय मिली ट्रैकिंग आईडी डालें।", f_track:"ट्रैकिंग आईडी", btn_track:"ट्रैक करें",
+admin_h:"एडमिन डैशबोर्ड", admin_p:"सभी शिकायतें, स्थिति अपडेट और समय-सीमा चूकने के मामले एक जगह।",
+all_status:"सभी स्थितियाँ", all_dept:"सभी विभाग", aria_status:"स्थिति से छाँटें", aria_dept:"विभाग से छाँटें", btn_refresh:"रीफ़्रेश",
+th_id:"आईडी", th_title:"शीर्षक", th_cat:"श्रेणी", th_dept:"विभाग", th_status:"स्थिति", th_deadline:"समय-सीमा", th_video:"वीडियो", th_update:"स्थिति बदलें",
+stat_total:"कुल शिकायतें", stat_pending:"लंबित", stat_resolved:"हल हुईं", stat_overdue:"समय-सीमा चूकी",
+heat_h:"शिकायत हीटमैप", heat_p:"किस जगह कैसी शिकायतें आ रही हैं। पारदर्शिता के लिए सार्वजनिक।",
+foot_l:"ONOCP कृष्णकांत द्वारा बनाया गया एक सिविक-टेक प्रोटोटाइप है।", foot_r:"मैप डेटा © OpenStreetMap योगदानकर्ता",
+hint_nopin:"अभी कोई जगह नहीं चुनी। नक्शे पर क्लिक करें।", hint_pinset:"जगह चुनी गई: {c}",
+hint_map_fail:"जगह चुनना वैकल्पिक है। इसके बिना भी जमा कर सकते हैं।",
+map_fail:"नक्शा लोड नहीं हो सका। पेज रीफ़्रेश करें। इलाका या पहचान की जगह लिखकर शिकायत फिर भी दर्ज कर सकते हैं।",
+heat_fail:"हीटमैप लोड नहीं हो सका। दोबारा कोशिश करें।", heat_empty:"अभी कोई लोकेशन वाली शिकायत नहीं है। शिकायत दर्ज करते समय जगह चुनें, वह यहाँ दिखेगी।",
+err_short:"शीर्षक और विवरण थोड़ा और विस्तार से लिखें।",
+err_conn:"सर्वर से जुड़ नहीं पाए। थोड़ी देर बाद फिर कोशिश करें (मुफ़्त सर्वर को जागने में एक मिनट लग सकता है)।",
+err_conn_short:"सर्वर से जुड़ नहीं पाए।", uploading:"वीडियो अपलोड हो रहा है...",
+err_id_empty:"पहले ट्रैकिंग आईडी डालें, जैसे ONOCP-AB12CD।", err_id_notfound:"यह ट्रैकिंग आईडी नहीं मिली। जाँचकर फिर कोशिश करें।",
+cam_denied:"कैमरे की अनुमति नहीं मिली या कैमरा उपलब्ध नहीं है।",
+sla_breached:"समय-सीमा चूकी", sla_breached_esc:"समय-सीमा चूकी, ऊपर भेजी गई", resolve_by:"{d} तक हल करना है", none:"कोई नहीं", view:"देखें",
+no_complaints:"अभी कोई शिकायत नहीं है। दर्ज शिकायतें यहाँ दिखेंगी।", aria_update:"{id} की स्थिति बदलें"
+};
+
+/* ===== Hinglish (Hindi in Roman letters) ===== */
+T['hi-Latn'] = {
+brand_sub:"Ek Rashtra, Ek Shikayat Portal", aria_home:"ONOCP home",
+nav_home:"Home", nav_submit:"Shikayat darj karo", nav_track:"Track karo", nav_heatmap:"Heatmap", nav_admin:"Admin",
+lang_title:"Apni bhasha chuno", lang_strip:"11 bhashaon me available:",
+hero_h1:"Ek baar darj karo. Sahi department tak pahunchegi.",
+hero_sub:"Problem likho aur map par jagah pin karo. ONOCP sahi department chunta hai, deadline set karta hai aur tumhe ek ID deta hai, jisse tum resolve hone tak follow kar sako.",
+cta_file:"Shikayat darj karo", cta_track:"Shikayat track karo",
+live_line:"Ab tak <b>{t}</b> shikayatein darj hui, <b>{r}</b> resolve hui.",
+sample_note:"Darj karne ke baad tumhe aisi receipt milti hai. Example:", receipt:"Shikayat receipt",
+sample_title:"Market road ke paas gaddha", sample_route:"Roads &amp; Potholes, bheji gayi: <b>Public Works Department</b>",
+sample_deadline:"Darj hone ke 3 din me resolve karna hai", on_track:"Time par",
+st_Pending:"Pending", st_Assigned:"Assigned", "st_In Progress":"In Progress", st_Resolved:"Resolved",
+how_h:"Shikayat se samadhan tak",
+how1_t:"Problem batao", how1_p:"Title aur kuch lines likho, map par jagah pin karo aur chaho to chhota video add karo.",
+how2_t:"Sahi jagah routing", how2_p:"Tumhare words se category detect hoti hai, phir zimmedar department ko SLA deadline ke saath bheji jaati hai.",
+how3_t:"Tum track karo", how3_p:"Apni tracking ID se kabhi bhi status dekho. Deadline miss hui to shikayat flag hokar escalate hoti hai.",
+submit_h:"Shikayat darj karo", submit_p:"Batao kya problem hai. Category aur department apne aap detect ho jayenge.",
+fs_what:"Kya hua", f_title:"Title", f_title_ph:"jaise: Market road ke paas gaddha",
+f_desc:"Description", f_desc_ph:"Problem detail me likho...",
+f_cat:"Category", f_cat_note:"(optional, Auto-detect par chhod do)", cat_auto:"Auto-detect",
+fs_where:"Kahan", f_loc:"Area ya landmark", f_loc_ph:"jaise: Sector 12, Bus Stand ke paas",
+f_pin:"Exact jagah pin karo", f_pin_note:"(map par click karo)",
+fs_extras:"Extra", f_video:"Video", opt:"(optional)",
+cam_start:"Camera start karo", cam_switch:"Camera badlo", cam_record:"Record", cam_stop:"Stop", cam_retake:"Dobara lo",
+video_hint:"Problem samjhane wala chhota video record karo.",
+f_contact:"Contact", f_contact_note:"(email ya phone, updates ke liye)", f_contact_ph:"Optional",
+btn_submit:"Shikayat submit karo",
+slot_h:"Tumhari receipt yahan dikhegi", slot_p:"Submit karne ke baad tumhe tracking ID, department aur deadline milegi. Baad me progress dekhne ke liye ID save kar lo.",
+track_h:"Shikayat track karo", track_p:"Darj karte waqt mili tracking ID daalo.", f_track:"Tracking ID", btn_track:"Track karo",
+admin_h:"Admin dashboard", admin_p:"Saari shikayatein, status updates aur SLA breaches ek jagah.",
+all_status:"Saare status", all_dept:"Saare departments", aria_status:"Status se filter karo", aria_dept:"Department se filter karo", btn_refresh:"Refresh",
+th_id:"ID", th_title:"Title", th_cat:"Category", th_dept:"Department", th_status:"Status", th_deadline:"Deadline", th_video:"Video", th_update:"Status badlo",
+stat_total:"Total shikayatein", stat_pending:"Pending", stat_resolved:"Resolved", stat_overdue:"SLA breach",
+heat_h:"Shikayat heatmap", heat_p:"Kahan kis type ki shikayatein aa rahi hain. Transparency ke liye public.",
+foot_l:"ONOCP Krishnakanth ka banaya civic-tech prototype hai.", foot_r:"Map data © OpenStreetMap contributors",
+hint_nopin:"Abhi pin nahi hai. Map par click karo.", hint_pinset:"Pin set: {c}",
+hint_map_fail:"Pin optional hai. Bina pin ke bhi submit ho jayegi.",
+map_fail:"Map load nahi ho paya. Page refresh karo. Area ya landmark likhkar shikayat phir bhi darj kar sakte ho.",
+heat_fail:"Heatmap load nahi ho paya. Dobara try karo.", heat_empty:"Abhi koi geo-tagged shikayat nahi hai. Shikayat darj karte waqt jagah pin karo, wo yahan dikhegi.",
+err_short:"Title aur description thoda aur detail me likho.",
+err_conn:"Server se connect nahi ho paaya. Thodi der baad dobara try karo (free server ko jagne me ek minute lag sakta hai).",
+err_conn_short:"Server se connect nahi ho paaya.", uploading:"Video upload ho raha hai...",
+err_id_empty:"Pehle tracking ID daalo, jaise ONOCP-AB12CD.", err_id_notfound:"Ye tracking ID nahi mili. Check karke dobara try karo.",
+cam_denied:"Camera permission nahi mili ya camera available nahi hai.",
+sla_breached:"SLA breach", sla_breached_esc:"SLA breach, escalate hui", resolve_by:"{d} tak resolve karna hai", none:"Koi nahi", view:"Dekho",
+no_complaints:"Abhi koi shikayat nahi hai. Darj shikayatein yahan dikhengi.", aria_update:"{id} ka status badlo"
+};
+
+/* ===== मराठी ===== */
+T['mr'] = {
+brand_sub:"एक राष्ट्र, एक तक्रार पोर्टल", aria_home:"ONOCP मुख्यपृष्ठ",
+nav_home:"मुख्यपृष्ठ", nav_submit:"तक्रार नोंदवा", nav_track:"ट्रॅक करा", nav_heatmap:"हीटमॅप", nav_admin:"ॲडमिन",
+lang_title:"तुमची भाषा निवडा", lang_strip:"11 भाषांमध्ये उपलब्ध:",
+hero_h1:"एकदा नोंदवा. योग्य विभागापर्यंत पोहोचेल.",
+hero_sub:"समस्या लिहा आणि नकाशावर जागा निवडा. ONOCP योग्य विभाग ठरवतो, मुदत ठरवतो आणि तुम्हाला एक आयडी देतो, ज्यामुळे निराकरण होईपर्यंत तुम्ही पाहू शकता.",
+cta_file:"तक्रार नोंदवा", cta_track:"तक्रार ट्रॅक करा",
+live_line:"आतापर्यंत <b>{t}</b> तक्रारी नोंदवल्या, <b>{r}</b> सोडवल्या.",
+sample_note:"नोंदवल्यानंतर तुम्हाला अशी पावती मिळते. उदाहरण:", receipt:"तक्रार पावती",
+sample_title:"बाजार रोडजवळ खड्डा", sample_route:"रस्ते आणि खड्डे, पाठवले: <b>सार्वजनिक बांधकाम विभाग</b>",
+sample_deadline:"नोंदवल्यापासून 3 दिवसांत सोडवायची", on_track:"वेळेत",
+st_Pending:"प्रलंबित", st_Assigned:"नेमून दिली", "st_In Progress":"काम सुरू", st_Resolved:"सोडवली",
+how_h:"तक्रारीपासून निराकरणापर्यंत",
+how1_t:"समस्या सांगा", how1_p:"शीर्षक आणि काही ओळी लिहा, नकाशावर जागा निवडा आणि हवे तर छोटा व्हिडिओ जोडा.",
+how2_t:"योग्य ठिकाणी पाठवली जाते", how2_p:"तुमच्या शब्दांवरून श्रेणी ओळखली जाते आणि जबाबदार विभागाला मुदतीसह पाठवली जाते.",
+how3_t:"तुम्ही ट्रॅक करा", how3_p:"तुमच्या ट्रॅकिंग आयडीने केव्हाही स्थिती पहा. मुदत चुकली तर तक्रार चिन्हांकित होऊन वरच्या पातळीवर जाते.",
+submit_h:"तक्रार नोंदवा", submit_p:"काय समस्या आहे ते सांगा. श्रेणी आणि विभाग आपोआप ठरतील.",
+fs_what:"काय झाले", f_title:"शीर्षक", f_title_ph:"उदा. बाजार रोडजवळ खड्डा",
+f_desc:"वर्णन", f_desc_ph:"समस्या सविस्तर लिहा...",
+f_cat:"श्रेणी", f_cat_note:"(पर्यायी, आपोआप ओळखण्यावर ठेवा)", cat_auto:"आपोआप ओळखा",
+fs_where:"कुठे", f_loc:"परिसर किंवा खूण", f_loc_ph:"उदा. सेक्टर 12, बस स्टँडजवळ",
+f_pin:"नेमकी जागा निवडा", f_pin_note:"(नकाशावर क्लिक करा)",
+fs_extras:"अतिरिक्त", f_video:"व्हिडिओ", opt:"(पर्यायी)",
+cam_start:"कॅमेरा सुरू करा", cam_switch:"कॅमेरा बदला", cam_record:"रेकॉर्ड", cam_stop:"थांबवा", cam_retake:"पुन्हा घ्या",
+video_hint:"समस्या समजावणारा छोटा व्हिडिओ रेकॉर्ड करा.",
+f_contact:"संपर्क", f_contact_note:"(ईमेल किंवा फोन, अपडेटसाठी)", f_contact_ph:"पर्यायी",
+btn_submit:"तक्रार सादर करा",
+slot_h:"तुमची पावती इथे दिसेल", slot_p:"सादर केल्यानंतर तुम्हाला ट्रॅकिंग आयडी, संबंधित विभाग आणि मुदत मिळेल. नंतर प्रगती पाहण्यासाठी आयडी जतन करा.",
+track_h:"तक्रार ट्रॅक करा", track_p:"नोंदवताना मिळालेला ट्रॅकिंग आयडी टाका.", f_track:"ट्रॅकिंग आयडी", btn_track:"ट्रॅक करा",
+admin_h:"ॲडमिन डॅशबोर्ड", admin_p:"सर्व तक्रारी, स्थिती अपडेट आणि मुदत चुकलेली प्रकरणे एका ठिकाणी.",
+all_status:"सर्व स्थिती", all_dept:"सर्व विभाग", aria_status:"स्थितीनुसार गाळा", aria_dept:"विभागानुसार गाळा", btn_refresh:"रिफ्रेश",
+th_id:"आयडी", th_title:"शीर्षक", th_cat:"श्रेणी", th_dept:"विभाग", th_status:"स्थिती", th_deadline:"मुदत", th_video:"व्हिडिओ", th_update:"स्थिती बदला",
+stat_total:"एकूण तक्रारी", stat_pending:"प्रलंबित", stat_resolved:"सोडवल्या", stat_overdue:"मुदत चुकली",
+heat_h:"तक्रार हीटमॅप", heat_p:"कुठे कोणत्या प्रकारच्या तक्रारी येत आहेत. पारदर्शकतेसाठी सार्वजनिक.",
+foot_l:"ONOCP हा कृष्णकांत यांनी बनवलेला सिव्हिक-टेक प्रोटोटाइप आहे.", foot_r:"नकाशा डेटा © OpenStreetMap योगदानकर्ते",
+hint_nopin:"अजून जागा निवडली नाही. नकाशावर क्लिक करा.", hint_pinset:"जागा निवडली: {c}",
+hint_map_fail:"जागा निवडणे पर्यायी आहे. त्याशिवायही सादर करता येईल.",
+map_fail:"नकाशा लोड झाला नाही. पेज रिफ्रेश करा. परिसर किंवा खूण लिहून तक्रार तरीही नोंदवता येईल.",
+heat_fail:"हीटमॅप लोड झाला नाही. पुन्हा प्रयत्न करा.", heat_empty:"अजून लोकेशन असलेली तक्रार नाही. तक्रार नोंदवताना जागा निवडा, ती इथे दिसेल.",
+err_short:"शीर्षक आणि वर्णन थोडे अधिक सविस्तर लिहा.",
+err_conn:"सर्व्हरशी संपर्क होऊ शकला नाही. थोड्या वेळाने पुन्हा प्रयत्न करा (मोफत सर्व्हर जागा होण्यास एक मिनिट लागू शकतो).",
+err_conn_short:"सर्व्हरशी संपर्क होऊ शकला नाही.", uploading:"व्हिडिओ अपलोड होत आहे...",
+err_id_empty:"आधी ट्रॅकिंग आयडी टाका, उदा. ONOCP-AB12CD.", err_id_notfound:"हा ट्रॅकिंग आयडी सापडला नाही. तपासून पुन्हा प्रयत्न करा.",
+cam_denied:"कॅमेरा परवानगी नाकारली किंवा कॅमेरा उपलब्ध नाही.",
+sla_breached:"मुदत चुकली", sla_breached_esc:"मुदत चुकली, वर पाठवली", resolve_by:"{d} पर्यंत सोडवायची", none:"काही नाही", view:"पहा",
+no_complaints:"अजून तक्रार नाही. नोंदवलेल्या तक्रारी इथे दिसतील.", aria_update:"{id} ची स्थिती बदला"
+};
+
+/* ===== বাংলা ===== */
+T['bn'] = {
+brand_sub:"এক দেশ, এক অভিযোগ পোর্টাল", aria_home:"ONOCP হোম",
+nav_home:"হোম", nav_submit:"অভিযোগ জানান", nav_track:"ট্র্যাক করুন", nav_heatmap:"হিটম্যাপ", nav_admin:"অ্যাডমিন",
+lang_title:"আপনার ভাষা বেছে নিন", lang_strip:"11টি ভাষায় পাওয়া যায়:",
+hero_h1:"একবার জানান। সঠিক বিভাগে পৌঁছে যাবে।",
+hero_sub:"সমস্যাটি লিখুন আর মানচিত্রে জায়গা চিহ্নিত করুন। ONOCP সঠিক বিভাগ ঠিক করে, সময়সীমা বেঁধে দেয় এবং আপনাকে একটি আইডি দেয়, যা দিয়ে সমাধান না হওয়া পর্যন্ত অনুসরণ করতে পারবেন।",
+cta_file:"অভিযোগ জানান", cta_track:"অভিযোগ ট্র্যাক করুন",
+live_line:"এ পর্যন্ত <b>{t}</b>টি অভিযোগ জমা পড়েছে, <b>{r}</b>টির সমাধান হয়েছে।",
+sample_note:"জমা দেওয়ার পর আপনি এমন একটি রসিদ পাবেন। উদাহরণ:", receipt:"অভিযোগের রসিদ",
+sample_title:"বাজার রোডের কাছে গর্ত", sample_route:"রাস্তা ও গর্ত, পাঠানো হয়েছে: <b>পূর্ত বিভাগ</b>",
+sample_deadline:"জমা দেওয়ার 3 দিনের মধ্যে সমাধান", on_track:"সময়মতো",
+st_Pending:"অপেক্ষমাণ", st_Assigned:"দায়িত্ব দেওয়া হয়েছে", "st_In Progress":"কাজ চলছে", st_Resolved:"সমাধান হয়েছে",
+how_h:"অভিযোগ থেকে সমাধান",
+how1_t:"সমস্যা জানান", how1_p:"একটি শিরোনাম ও কয়েক লাইন লিখুন, মানচিত্রে জায়গা চিহ্নিত করুন, চাইলে ছোট ভিডিও যোগ করুন।",
+how2_t:"সঠিক জায়গায় পাঠানো হয়", how2_p:"আপনার লেখা থেকে ধরন চেনা হয় এবং দায়িত্বপ্রাপ্ত বিভাগে সময়সীমাসহ পাঠানো হয়।",
+how3_t:"আপনি অনুসরণ করুন", how3_p:"ট্র্যাকিং আইডি দিয়ে যেকোনো সময় অবস্থা দেখুন। সময়সীমা পেরিয়ে গেলে অভিযোগ চিহ্নিত হয়ে উপরের স্তরে যায়।",
+submit_h:"অভিযোগ জানান", submit_p:"কী সমস্যা তা জানান। ধরন ও বিভাগ নিজে থেকেই ঠিক হবে।",
+fs_what:"কী হয়েছে", f_title:"শিরোনাম", f_title_ph:"যেমন: বাজার রোডের কাছে গর্ত",
+f_desc:"বিবরণ", f_desc_ph:"সমস্যাটি বিস্তারিত লিখুন...",
+f_cat:"ধরন", f_cat_note:"(ঐচ্ছিক, স্বয়ংক্রিয় শনাক্তকরণে রাখুন)", cat_auto:"স্বয়ংক্রিয় শনাক্ত",
+fs_where:"কোথায়", f_loc:"এলাকা বা চিহ্ন", f_loc_ph:"যেমন: সেক্টর 12, বাস স্ট্যান্ডের কাছে",
+f_pin:"সঠিক জায়গা চিহ্নিত করুন", f_pin_note:"(মানচিত্রে ক্লিক করুন)",
+fs_extras:"অতিরিক্ত", f_video:"ভিডিও", opt:"(ঐচ্ছিক)",
+cam_start:"ক্যামেরা চালু করুন", cam_switch:"ক্যামেরা বদলান", cam_record:"রেকর্ড", cam_stop:"থামান", cam_retake:"আবার তুলুন",
+video_hint:"সমস্যাটি বোঝাতে একটি ছোট ভিডিও রেকর্ড করুন।",
+f_contact:"যোগাযোগ", f_contact_note:"(ইমেইল বা ফোন, আপডেটের জন্য)", f_contact_ph:"ঐচ্ছিক",
+btn_submit:"অভিযোগ জমা দিন",
+slot_h:"আপনার রসিদ এখানে দেখা যাবে", slot_p:"জমা দেওয়ার পর ট্র্যাকিং আইডি, কোন বিভাগে গেল এবং সময়সীমা পাবেন। পরে অগ্রগতি দেখতে আইডিটি সংরক্ষণ করুন।",
+track_h:"অভিযোগ ট্র্যাক করুন", track_p:"জমা দেওয়ার সময় পাওয়া ট্র্যাকিং আইডি লিখুন।", f_track:"ট্র্যাকিং আইডি", btn_track:"ট্র্যাক করুন",
+admin_h:"অ্যাডমিন ড্যাশবোর্ড", admin_p:"সব অভিযোগ, অবস্থার হালনাগাদ ও সময়সীমা পেরোনো ঘটনা এক জায়গায়।",
+all_status:"সব অবস্থা", all_dept:"সব বিভাগ", aria_status:"অবস্থা অনুযায়ী ছাঁটুন", aria_dept:"বিভাগ অনুযায়ী ছাঁটুন", btn_refresh:"রিফ্রেশ",
+th_id:"আইডি", th_title:"শিরোনাম", th_cat:"ধরন", th_dept:"বিভাগ", th_status:"অবস্থা", th_deadline:"সময়সীমা", th_video:"ভিডিও", th_update:"অবস্থা বদলান",
+stat_total:"মোট অভিযোগ", stat_pending:"অপেক্ষমাণ", stat_resolved:"সমাধান হয়েছে", stat_overdue:"সময়সীমা পেরিয়েছে",
+heat_h:"অভিযোগ হিটম্যাপ", heat_p:"কোথায় কী ধরনের অভিযোগ আসছে। স্বচ্ছতার জন্য সবার জন্য খোলা।",
+foot_l:"ONOCP কৃষ্ণকান্তের তৈরি একটি সিভিক-টেক প্রোটোটাইপ।", foot_r:"মানচিত্রের তথ্য © OpenStreetMap অবদানকারীরা",
+hint_nopin:"এখনও জায়গা চিহ্নিত হয়নি। মানচিত্রে ক্লিক করুন।", hint_pinset:"জায়গা চিহ্নিত: {c}",
+hint_map_fail:"জায়গা চিহ্নিত করা ঐচ্ছিক। এটি ছাড়াও জমা দিতে পারবেন।",
+map_fail:"মানচিত্র লোড হয়নি। পেজ রিফ্রেশ করুন। এলাকা বা চিহ্ন লিখে তবুও অভিযোগ জানাতে পারবেন।",
+heat_fail:"হিটম্যাপ লোড হয়নি। আবার চেষ্টা করুন।", heat_empty:"এখনও লোকেশনসহ কোনো অভিযোগ নেই। অভিযোগ জানানোর সময় জায়গা চিহ্নিত করুন, তা এখানে দেখা যাবে।",
+err_short:"শিরোনাম ও বিবরণ আরেকটু বিস্তারিত লিখুন।",
+err_conn:"সার্ভারে সংযোগ করা যায়নি। একটু পরে আবার চেষ্টা করুন (ফ্রি সার্ভার জাগতে এক মিনিট লাগতে পারে)।",
+err_conn_short:"সার্ভারে সংযোগ করা যায়নি।", uploading:"ভিডিও আপলোড হচ্ছে...",
+err_id_empty:"আগে ট্র্যাকিং আইডি লিখুন, যেমন ONOCP-AB12CD।", err_id_notfound:"এই ট্র্যাকিং আইডি পাওয়া যায়নি। মিলিয়ে দেখে আবার চেষ্টা করুন।",
+cam_denied:"ক্যামেরার অনুমতি মেলেনি বা ক্যামেরা নেই।",
+sla_breached:"সময়সীমা পেরিয়েছে", sla_breached_esc:"সময়সীমা পেরিয়েছে, উপরে পাঠানো হয়েছে", resolve_by:"{d}-এর মধ্যে সমাধান", none:"নেই", view:"দেখুন",
+no_complaints:"এখনও কোনো অভিযোগ নেই। জমা পড়া অভিযোগ এখানে দেখা যাবে।", aria_update:"{id}-এর অবস্থা বদলান"
+};
+
+/* ===== தமிழ் ===== */
+T['ta'] = {
+brand_sub:"ஒரே தேசம், ஒரே புகார் தளம்", aria_home:"ONOCP முகப்பு",
+nav_home:"முகப்பு", nav_submit:"புகார் பதிவு", nav_track:"கண்காணிக்க", nav_heatmap:"ஹீட்மேப்", nav_admin:"நிர்வாகி",
+lang_title:"உங்கள் மொழியைத் தேர்ந்தெடுக்கவும்", lang_strip:"11 மொழிகளில் கிடைக்கும்:",
+hero_h1:"ஒருமுறை பதிவு செய்யுங்கள். சரியான துறைக்குச் சென்றுவிடும்.",
+hero_sub:"பிரச்சனையை எழுதி வரைபடத்தில் இடத்தைக் குறியுங்கள். ONOCP சரியான துறையைத் தேர்ந்து, கெடு நிர்ணயித்து, உங்களுக்கு ஓர் அடையாள எண் தரும். தீரும் வரை அதை வைத்துப் பின்தொடரலாம்.",
+cta_file:"புகார் பதிவு செய்", cta_track:"புகாரைக் கண்காணி",
+live_line:"இதுவரை <b>{t}</b> புகார்கள் பதிவாகின, <b>{r}</b> தீர்க்கப்பட்டன.",
+sample_note:"பதிவு செய்த பிறகு இது போன்ற ரசீது கிடைக்கும். எடுத்துக்காட்டு:", receipt:"புகார் ரசீது",
+sample_title:"சந்தை சாலை அருகே குழி", sample_route:"சாலைகள் & குழிகள், அனுப்பப்பட்டது: <b>பொதுப்பணித் துறை</b>",
+sample_deadline:"பதிவு செய்த 3 நாட்களுக்குள் தீர்வு", on_track:"நேரத்தில்",
+st_Pending:"நிலுவையில்", st_Assigned:"ஒதுக்கப்பட்டது", "st_In Progress":"பணி நடக்கிறது", st_Resolved:"தீர்க்கப்பட்டது",
+how_h:"புகாரிலிருந்து தீர்வு வரை",
+how1_t:"விவரியுங்கள்", how1_p:"தலைப்பும் சில வரிகளும் எழுதுங்கள், வரைபடத்தில் இடத்தைக் குறியுங்கள், விரும்பினால் சிறு வீடியோ சேர்க்கலாம்.",
+how2_t:"சரியான இடத்துக்கு அனுப்பப்படும்", how2_p:"உங்கள் வார்த்தைகளிலிருந்து வகை அறியப்பட்டு, பொறுப்பான துறைக்குக் கெடுவுடன் அனுப்பப்படும்.",
+how3_t:"நீங்கள் பின்தொடருங்கள்", how3_p:"கண்காணிப்பு எண்ணால் எப்போது வேண்டுமானாலும் நிலையைப் பாருங்கள். கெடு தவறினால் புகார் குறிக்கப்பட்டு மேலே அனுப்பப்படும்.",
+submit_h:"புகார் பதிவு செய்", submit_p:"என்ன பிரச்சனை என்று சொல்லுங்கள். வகையும் துறையும் தானாகக் கண்டறியப்படும்.",
+fs_what:"என்ன நடந்தது", f_title:"தலைப்பு", f_title_ph:"எ.கா. சந்தை சாலை அருகே குழி",
+f_desc:"விவரம்", f_desc_ph:"பிரச்சனையை விரிவாக எழுதுங்கள்...",
+f_cat:"வகை", f_cat_note:"(விருப்பம், தானாகக் கண்டறிதலில் விடுங்கள்)", cat_auto:"தானாகக் கண்டறி",
+fs_where:"எங்கே", f_loc:"பகுதி அல்லது அடையாள இடம்", f_loc_ph:"எ.கா. செக்டர் 12, பேருந்து நிலையம் அருகே",
+f_pin:"சரியான இடத்தைக் குறியுங்கள்", f_pin_note:"(வரைபடத்தில் கிளிக் செய்யுங்கள்)",
+fs_extras:"கூடுதல்", f_video:"வீடியோ", opt:"(விருப்பம்)",
+cam_start:"கேமராவைத் தொடங்கு", cam_switch:"கேமராவை மாற்று", cam_record:"பதிவு", cam_stop:"நிறுத்து", cam_retake:"மீண்டும் எடு",
+video_hint:"பிரச்சனையை விளக்கும் சிறு வீடியோவைப் பதிவு செய்யுங்கள்.",
+f_contact:"தொடர்பு", f_contact_note:"(மின்னஞ்சல் அல்லது தொலைபேசி, தகவலுக்காக)", f_contact_ph:"விருப்பம்",
+btn_submit:"புகாரைச் சமர்ப்பி",
+slot_h:"உங்கள் ரசீது இங்கே தோன்றும்", slot_p:"சமர்ப்பித்த பிறகு கண்காணிப்பு எண், அனுப்பப்பட்ட துறை, கெடு ஆகியவை கிடைக்கும். பின்னர் நிலையைப் பார்க்க எண்ணைச் சேமியுங்கள்.",
+track_h:"புகாரைக் கண்காணி", track_p:"பதிவு செய்தபோது கிடைத்த கண்காணிப்பு எண்ணை உள்ளிடுங்கள்.", f_track:"கண்காணிப்பு எண்", btn_track:"கண்காணி",
+admin_h:"நிர்வாகி பலகை", admin_p:"அனைத்து புகார்கள், நிலை மாற்றங்கள், கெடு தவறியவை ஒரே இடத்தில்.",
+all_status:"அனைத்து நிலைகள்", all_dept:"அனைத்துத் துறைகள்", aria_status:"நிலை வாரியாகப் பிரி", aria_dept:"துறை வாரியாகப் பிரி", btn_refresh:"புதுப்பி",
+th_id:"எண்", th_title:"தலைப்பு", th_cat:"வகை", th_dept:"துறை", th_status:"நிலை", th_deadline:"கெடு", th_video:"வீடியோ", th_update:"நிலையை மாற்று",
+stat_total:"மொத்த புகார்கள்", stat_pending:"நிலுவையில்", stat_resolved:"தீர்க்கப்பட்டவை", stat_overdue:"கெடு தவறியவை",
+heat_h:"புகார் ஹீட்மேப்", heat_p:"எங்கிருந்து எந்த வகைப் புகார்கள் வருகின்றன. வெளிப்படைத்தன்மைக்காக பொதுவில்.",
+foot_l:"ONOCP என்பது கிருஷ்ணகாந்த் உருவாக்கிய குடிமைத் தொழில்நுட்ப முன்மாதிரி.", foot_r:"வரைபடத் தரவு © OpenStreetMap பங்களிப்பாளர்கள்",
+hint_nopin:"இன்னும் இடம் குறிக்கப்படவில்லை. வரைபடத்தில் கிளிக் செய்யுங்கள்.", hint_pinset:"இடம் குறிக்கப்பட்டது: {c}",
+hint_map_fail:"இடத்தைக் குறிப்பது விருப்பம்தான். அது இல்லாமலும் சமர்ப்பிக்கலாம்.",
+map_fail:"வரைபடம் ஏற்றப்படவில்லை. பக்கத்தைப் புதுப்பியுங்கள். பகுதி அல்லது அடையாள இடத்தை எழுதி புகாரைப் பதிவு செய்யலாம்.",
+heat_fail:"ஹீட்மேப் ஏற்றப்படவில்லை. மீண்டும் முயலுங்கள்.", heat_empty:"இடத்துடன் கூடிய புகார்கள் இன்னும் இல்லை. புகார் அளிக்கும்போது இடத்தைக் குறியுங்கள், அது இங்கே தோன்றும்.",
+err_short:"தலைப்பு மற்றும் விவரத்தை இன்னும் சற்று விரிவாக எழுதுங்கள்.",
+err_conn:"சர்வரைத் தொடர்பு கொள்ள முடியவில்லை. சிறிது நேரம் கழித்து மீண்டும் முயலுங்கள் (இலவச சர்வர் விழிக்க ஒரு நிமிடம் ஆகலாம்).",
+err_conn_short:"சர்வரைத் தொடர்பு கொள்ள முடியவில்லை.", uploading:"வீடியோ பதிவேற்றப்படுகிறது...",
+err_id_empty:"முதலில் கண்காணிப்பு எண்ணை உள்ளிடுங்கள், எ.கா. ONOCP-AB12CD.", err_id_notfound:"இந்தக் கண்காணிப்பு எண் கிடைக்கவில்லை. சரிபார்த்து மீண்டும் முயலுங்கள்.",
+cam_denied:"கேமரா அனுமதி மறுக்கப்பட்டது அல்லது கேமரா இல்லை.",
+sla_breached:"கெடு தவறியது", sla_breached_esc:"கெடு தவறியது, மேலே அனுப்பப்பட்டது", resolve_by:"{d}-க்குள் தீர்வு", none:"இல்லை", view:"பார்",
+no_complaints:"இன்னும் புகார்கள் இல்லை. பதிவான புகார்கள் இங்கே தெரியும்.", aria_update:"{id}-இன் நிலையை மாற்று"
+};
+
+/* ===== తెలుగు ===== */
+T['te'] = {
+brand_sub:"ఒకే దేశం, ఒకే ఫిర్యాదుల పోర్టల్", aria_home:"ONOCP హోమ్",
+nav_home:"హోమ్", nav_submit:"ఫిర్యాదు చేయండి", nav_track:"ట్రాక్ చేయండి", nav_heatmap:"హీట్‌మ్యాప్", nav_admin:"అడ్మిన్",
+lang_title:"మీ భాషను ఎంచుకోండి", lang_strip:"11 భాషల్లో అందుబాటులో ఉంది:",
+hero_h1:"ఒక్కసారి నమోదు చేయండి. సరైన శాఖకు చేరుతుంది.",
+hero_sub:"సమస్యను రాసి మ్యాప్‌లో ప్రదేశాన్ని గుర్తించండి. ONOCP సరైన శాఖను ఎంచుకుని, గడువు పెట్టి, మీకు ఒక ఐడీ ఇస్తుంది. పరిష్కారమయ్యే వరకు దాంతో అనుసరించవచ్చు.",
+cta_file:"ఫిర్యాదు చేయండి", cta_track:"ఫిర్యాదును ట్రాక్ చేయండి",
+live_line:"ఇప్పటివరకు <b>{t}</b> ఫిర్యాదులు నమోదయ్యాయి, <b>{r}</b> పరిష్కారమయ్యాయి.",
+sample_note:"నమోదు చేసిన తర్వాత మీకు ఇలాంటి రసీదు వస్తుంది. ఉదాహరణ:", receipt:"ఫిర్యాదు రసీదు",
+sample_title:"మార్కెట్ రోడ్ దగ్గర గుంత", sample_route:"రోడ్లు & గుంతలు, పంపినది: <b>ప్రజా పనుల శాఖ</b>",
+sample_deadline:"నమోదైన 3 రోజుల్లో పరిష్కరించాలి", on_track:"సమయానికి",
+st_Pending:"పెండింగ్", st_Assigned:"అప్పగించారు", "st_In Progress":"పని జరుగుతోంది", st_Resolved:"పరిష్కారమైంది",
+how_h:"ఫిర్యాదు నుంచి పరిష్కారం వరకు",
+how1_t:"వివరించండి", how1_p:"శీర్షిక, కొన్ని వాక్యాలు రాయండి, మ్యాప్‌లో ప్రదేశం గుర్తించండి, కావాలంటే చిన్న వీడియో జోడించండి.",
+how2_t:"సరైన చోటికి పంపబడుతుంది", how2_p:"మీ మాటల నుంచి రకాన్ని గుర్తించి, బాధ్యత గల శాఖకు గడువుతో పంపుతారు.",
+how3_t:"మీరు అనుసరించండి", how3_p:"ట్రాకింగ్ ఐడీతో ఎప్పుడైనా స్థితిని చూడండి. గడువు దాటితే ఫిర్యాదు గుర్తించబడి పై స్థాయికి వెళ్తుంది.",
+submit_h:"ఫిర్యాదు చేయండి", submit_p:"ఏ సమస్య ఉందో చెప్పండి. రకం, శాఖ ఆటోమేటిక్‌గా గుర్తిస్తాయి.",
+fs_what:"ఏం జరిగింది", f_title:"శీర్షిక", f_title_ph:"ఉదా. మార్కెట్ రోడ్ దగ్గర గుంత",
+f_desc:"వివరణ", f_desc_ph:"సమస్యను వివరంగా రాయండి...",
+f_cat:"రకం", f_cat_note:"(ఐచ్ఛికం, ఆటో-డిటెక్ట్‌లో వదిలేయండి)", cat_auto:"ఆటో-డిటెక్ట్",
+fs_where:"ఎక్కడ", f_loc:"ప్రాంతం లేదా గుర్తు", f_loc_ph:"ఉదా. సెక్టార్ 12, బస్ స్టాండ్ దగ్గర",
+f_pin:"సరైన ప్రదేశం గుర్తించండి", f_pin_note:"(మ్యాప్‌పై క్లిక్ చేయండి)",
+fs_extras:"అదనం", f_video:"వీడియో", opt:"(ఐచ్ఛికం)",
+cam_start:"కెమెరా ప్రారంభించు", cam_switch:"కెమెరా మార్చు", cam_record:"రికార్డ్", cam_stop:"ఆపు", cam_retake:"మళ్ళీ తీయి",
+video_hint:"సమస్యను వివరించే చిన్న వీడియో రికార్డ్ చేయండి.",
+f_contact:"సంప్రదింపు", f_contact_note:"(ఇమెయిల్ లేదా ఫోన్, అప్‌డేట్ల కోసం)", f_contact_ph:"ఐచ్ఛికం",
+btn_submit:"ఫిర్యాదు సమర్పించు",
+slot_h:"మీ రసీదు ఇక్కడ కనిపిస్తుంది", slot_p:"సమర్పించిన తర్వాత ట్రాకింగ్ ఐడీ, పంపిన శాఖ, గడువు వస్తాయి. తర్వాత పురోగతి చూడటానికి ఐడీని భద్రపరచండి.",
+track_h:"ఫిర్యాదును ట్రాక్ చేయండి", track_p:"నమోదు చేసినప్పుడు వచ్చిన ట్రాకింగ్ ఐడీ ఇవ్వండి.", f_track:"ట్రాకింగ్ ఐడీ", btn_track:"ట్రాక్ చేయి",
+admin_h:"అడ్మిన్ డ్యాష్‌బోర్డ్", admin_p:"అన్ని ఫిర్యాదులు, స్థితి మార్పులు, గడువు దాటినవి ఒకే చోట.",
+all_status:"అన్ని స్థితులు", all_dept:"అన్ని శాఖలు", aria_status:"స్థితి ప్రకారం వడపోయి", aria_dept:"శాఖ ప్రకారం వడపోయి", btn_refresh:"రిఫ్రెష్",
+th_id:"ఐడీ", th_title:"శీర్షిక", th_cat:"రకం", th_dept:"శాఖ", th_status:"స్థితి", th_deadline:"గడువు", th_video:"వీడియో", th_update:"స్థితి మార్చు",
+stat_total:"మొత్తం ఫిర్యాదులు", stat_pending:"పెండింగ్", stat_resolved:"పరిష్కారమైనవి", stat_overdue:"గడువు దాటినవి",
+heat_h:"ఫిర్యాదుల హీట్‌మ్యాప్", heat_p:"ఎక్కడ ఎలాంటి ఫిర్యాదులు వస్తున్నాయి. పారదర్శకత కోసం అందరికీ కనిపిస్తుంది.",
+foot_l:"ONOCP అనేది కృష్ణకాంత్ రూపొందించిన సివిక్-టెక్ ప్రోటోటైప్.", foot_r:"మ్యాప్ డేటా © OpenStreetMap కంట్రిబ్యూటర్లు",
+hint_nopin:"ఇంకా ప్రదేశం గుర్తించలేదు. మ్యాప్‌పై క్లిక్ చేయండి.", hint_pinset:"ప్రదేశం గుర్తించబడింది: {c}",
+hint_map_fail:"ప్రదేశం గుర్తించడం ఐచ్ఛికం. అది లేకుండా కూడా సమర్పించవచ్చు.",
+map_fail:"మ్యాప్ లోడ్ కాలేదు. పేజీని రిఫ్రెష్ చేయండి. ప్రాంతం లేదా గుర్తు రాసి ఫిర్యాదు చేయవచ్చు.",
+heat_fail:"హీట్‌మ్యాప్ లోడ్ కాలేదు. మళ్ళీ ప్రయత్నించండి.", heat_empty:"ప్రదేశంతో ఉన్న ఫిర్యాదులు ఇంకా లేవు. ఫిర్యాదు చేసేటప్పుడు ప్రదేశం గుర్తిస్తే ఇక్కడ కనిపిస్తుంది.",
+err_short:"శీర్షిక, వివరణ ఇంకొంచెం వివరంగా రాయండి.",
+err_conn:"సర్వర్‌కు కనెక్ట్ కాలేకపోయాం. కొద్దిసేపటి తర్వాత మళ్ళీ ప్రయత్నించండి (ఉచిత సర్వర్ లేవడానికి ఒక నిమిషం పట్టవచ్చు).",
+err_conn_short:"సర్వర్‌కు కనెక్ట్ కాలేకపోయాం.", uploading:"వీడియో అప్‌లోడ్ అవుతోంది...",
+err_id_empty:"ముందు ట్రాకింగ్ ఐడీ ఇవ్వండి, ఉదా. ONOCP-AB12CD.", err_id_notfound:"ఈ ట్రాకింగ్ ఐడీ దొరకలేదు. సరిచూసి మళ్ళీ ప్రయత్నించండి.",
+cam_denied:"కెమెరా అనుమతి నిరాకరించబడింది లేదా కెమెరా లేదు.",
+sla_breached:"గడువు దాటింది", sla_breached_esc:"గడువు దాటింది, పై స్థాయికి పంపారు", resolve_by:"{d} లోపు పరిష్కరించాలి", none:"లేదు", view:"చూడండి",
+no_complaints:"ఇంకా ఫిర్యాదులు లేవు. నమోదైన ఫిర్యాదులు ఇక్కడ కనిపిస్తాయి.", aria_update:"{id} స్థితి మార్చు"
+};
+
+/* ===== ગુજરાતી ===== */
+T['gu'] = {
+brand_sub:"એક રાષ્ટ્ર, એક ફરિયાદ પોર્ટલ", aria_home:"ONOCP હોમ",
+nav_home:"હોમ", nav_submit:"ફરિયાદ નોંધાવો", nav_track:"ટ્રેક કરો", nav_heatmap:"હીટમેપ", nav_admin:"એડમિન",
+lang_title:"તમારી ભાષા પસંદ કરો", lang_strip:"11 ભાષાઓમાં ઉપલબ્ધ:",
+hero_h1:"એકવાર નોંધાવો. સાચા વિભાગ સુધી પહોંચશે.",
+hero_sub:"સમસ્યા લખો અને નકશા પર જગ્યા પસંદ કરો. ONOCP સાચો વિભાગ નક્કી કરે છે, સમયમર્યાદા મૂકે છે અને તમને એક આઈડી આપે છે, જેનાથી ઉકેલ ન આવે ત્યાં સુધી તમે જોઈ શકો.",
+cta_file:"ફરિયાદ નોંધાવો", cta_track:"ફરિયાદ ટ્રેક કરો",
+live_line:"અત્યાર સુધી <b>{t}</b> ફરિયાદો નોંધાઈ, <b>{r}</b> ઉકેલાઈ.",
+sample_note:"નોંધાવ્યા પછી તમને આવી પહોંચ મળે છે. ઉદાહરણ:", receipt:"ફરિયાદ પહોંચ",
+sample_title:"બજાર રોડ પાસે ખાડો", sample_route:"રસ્તા અને ખાડા, મોકલ્યું: <b>જાહેર બાંધકામ વિભાગ</b>",
+sample_deadline:"નોંધાયાના 3 દિવસમાં ઉકેલવી", on_track:"સમયસર",
+st_Pending:"બાકી", st_Assigned:"સોંપાઈ", "st_In Progress":"કામ ચાલુ", st_Resolved:"ઉકેલાઈ",
+how_h:"ફરિયાદથી ઉકેલ સુધી",
+how1_t:"સમસ્યા જણાવો", how1_p:"શીર્ષક અને થોડી લીટીઓ લખો, નકશા પર જગ્યા પસંદ કરો અને ઇચ્છો તો નાનો વીડિયો ઉમેરો.",
+how2_t:"સાચી જગ્યાએ મોકલાય છે", how2_p:"તમારા શબ્દો પરથી પ્રકાર ઓળખાય છે અને જવાબદાર વિભાગને સમયમર્યાદા સાથે મોકલાય છે.",
+how3_t:"તમે ટ્રેક કરો", how3_p:"ટ્રેકિંગ આઈડીથી ગમે ત્યારે સ્થિતિ જુઓ. સમયમર્યાદા ચૂકી જાય તો ફરિયાદ ચિહ્નિત થઈ ઉપર મોકલાય છે.",
+submit_h:"ફરિયાદ નોંધાવો", submit_p:"શું સમસ્યા છે તે જણાવો. પ્રકાર અને વિભાગ આપમેળે નક્કી થશે.",
+fs_what:"શું થયું", f_title:"શીર્ષક", f_title_ph:"દા.ત. બજાર રોડ પાસે ખાડો",
+f_desc:"વર્ણન", f_desc_ph:"સમસ્યા વિગતવાર લખો...",
+f_cat:"પ્રકાર", f_cat_note:"(વૈકલ્પિક, આપમેળે ઓળખ પર રહેવા દો)", cat_auto:"આપમેળે ઓળખો",
+fs_where:"ક્યાં", f_loc:"વિસ્તાર અથવા નિશાની", f_loc_ph:"દા.ત. સેક્ટર 12, બસ સ્ટેન્ડ પાસે",
+f_pin:"ચોક્કસ જગ્યા પસંદ કરો", f_pin_note:"(નકશા પર ક્લિક કરો)",
+fs_extras:"વધારાનું", f_video:"વીડિયો", opt:"(વૈકલ્પિક)",
+cam_start:"કેમેરા ચાલુ કરો", cam_switch:"કેમેરા બદલો", cam_record:"રેકોર્ડ", cam_stop:"બંધ કરો", cam_retake:"ફરી લો",
+video_hint:"સમસ્યા સમજાવતો નાનો વીડિયો રેકોર્ડ કરો.",
+f_contact:"સંપર્ક", f_contact_note:"(ઈમેલ અથવા ફોન, અપડેટ માટે)", f_contact_ph:"વૈકલ્પિક",
+btn_submit:"ફરિયાદ સબમિટ કરો",
+slot_h:"તમારી પહોંચ અહીં દેખાશે", slot_p:"સબમિટ કર્યા પછી તમને ટ્રેકિંગ આઈડી, સંબંધિત વિભાગ અને સમયમર્યાદા મળશે. પછી પ્રગતિ જોવા માટે આઈડી સાચવી રાખો.",
+track_h:"ફરિયાદ ટ્રેક કરો", track_p:"નોંધાવતી વખતે મળેલો ટ્રેકિંગ આઈડી નાખો.", f_track:"ટ્રેકિંગ આઈડી", btn_track:"ટ્રેક કરો",
+admin_h:"એડમિન ડેશબોર્ડ", admin_p:"બધી ફરિયાદો, સ્થિતિ અપડેટ અને સમયમર્યાદા ચૂકેલા કેસ એક જ જગ્યાએ.",
+all_status:"બધી સ્થિતિ", all_dept:"બધા વિભાગ", aria_status:"સ્થિતિ પ્રમાણે ગાળો", aria_dept:"વિભાગ પ્રમાણે ગાળો", btn_refresh:"રિફ્રેશ",
+th_id:"આઈડી", th_title:"શીર્ષક", th_cat:"પ્રકાર", th_dept:"વિભાગ", th_status:"સ્થિતિ", th_deadline:"સમયમર્યાદા", th_video:"વીડિયો", th_update:"સ્થિતિ બદલો",
+stat_total:"કુલ ફરિયાદો", stat_pending:"બાકી", stat_resolved:"ઉકેલાઈ", stat_overdue:"સમયમર્યાદા ચૂકી",
+heat_h:"ફરિયાદ હીટમેપ", heat_p:"ક્યાંથી કેવા પ્રકારની ફરિયાદો આવી રહી છે. પારદર્શિતા માટે જાહેર.",
+foot_l:"ONOCP કૃષ્ણકાંતે બનાવેલો સિવિક-ટેક પ્રોટોટાઇપ છે.", foot_r:"નકશા ડેટા © OpenStreetMap યોગદાનકર્તાઓ",
+hint_nopin:"હજુ જગ્યા પસંદ કરી નથી. નકશા પર ક્લિક કરો.", hint_pinset:"જગ્યા પસંદ કરી: {c}",
+hint_map_fail:"જગ્યા પસંદ કરવી વૈકલ્પિક છે. તેના વગર પણ સબમિટ કરી શકો.",
+map_fail:"નકશો લોડ થયો નથી. પેજ રિફ્રેશ કરો. વિસ્તાર અથવા નિશાની લખીને ફરિયાદ છતાં નોંધાવી શકો.",
+heat_fail:"હીટમેપ લોડ થયો નથી. ફરી પ્રયાસ કરો.", heat_empty:"હજુ લોકેશનવાળી ફરિયાદ નથી. ફરિયાદ નોંધાવતી વખતે જગ્યા પસંદ કરો, તે અહીં દેખાશે.",
+err_short:"શીર્ષક અને વર્ણન થોડું વધુ વિગતવાર લખો.",
+err_conn:"સર્વર સાથે જોડાઈ શકાયું નથી. થોડી વારે ફરી પ્રયાસ કરો (મફત સર્વરને જાગતા એક મિનિટ લાગી શકે).",
+err_conn_short:"સર્વર સાથે જોડાઈ શકાયું નથી.", uploading:"વીડિયો અપલોડ થઈ રહ્યો છે...",
+err_id_empty:"પહેલા ટ્રેકિંગ આઈડી નાખો, જેમ કે ONOCP-AB12CD.", err_id_notfound:"આ ટ્રેકિંગ આઈડી મળ્યો નથી. તપાસીને ફરી પ્રયાસ કરો.",
+cam_denied:"કેમેરાની પરવાનગી મળી નથી અથવા કેમેરા ઉપલબ્ધ નથી.",
+sla_breached:"સમયમર્યાદા ચૂકી", sla_breached_esc:"સમયમર્યાદા ચૂકી, ઉપર મોકલાઈ", resolve_by:"{d} સુધી ઉકેલવી", none:"કંઈ નહીં", view:"જુઓ",
+no_complaints:"હજુ કોઈ ફરિયાદ નથી. નોંધાયેલી ફરિયાદો અહીં દેખાશે.", aria_update:"{id} ની સ્થિતિ બદલો"
+};
+
+/* ===== ಕನ್ನಡ ===== */
+T['kn'] = {
+brand_sub:"ಒಂದು ದೇಶ, ಒಂದು ದೂರು ಪೋರ್ಟಲ್", aria_home:"ONOCP ಮುಖಪುಟ",
+nav_home:"ಮುಖಪುಟ", nav_submit:"ದೂರು ಸಲ್ಲಿಸಿ", nav_track:"ಟ್ರ್ಯಾಕ್ ಮಾಡಿ", nav_heatmap:"ಹೀಟ್‌ಮ್ಯಾಪ್", nav_admin:"ಅಡ್ಮಿನ್",
+lang_title:"ನಿಮ್ಮ ಭಾಷೆಯನ್ನು ಆರಿಸಿ", lang_strip:"11 ಭಾಷೆಗಳಲ್ಲಿ ಲಭ್ಯ:",
+hero_h1:"ಒಮ್ಮೆ ಸಲ್ಲಿಸಿ. ಸರಿಯಾದ ಇಲಾಖೆಗೆ ತಲುಪುತ್ತದೆ.",
+hero_sub:"ಸಮಸ್ಯೆಯನ್ನು ಬರೆದು ನಕ್ಷೆಯಲ್ಲಿ ಸ್ಥಳವನ್ನು ಗುರುತಿಸಿ. ONOCP ಸರಿಯಾದ ಇಲಾಖೆಯನ್ನು ಆರಿಸಿ, ಗಡುವು ನಿಗದಿಪಡಿಸಿ, ನಿಮಗೆ ಒಂದು ಐಡಿ ನೀಡುತ್ತದೆ. ಬಗೆಹರಿಯುವವರೆಗೆ ಅದರಿಂದ ಹಿಂಬಾಲಿಸಬಹುದು.",
+cta_file:"ದೂರು ಸಲ್ಲಿಸಿ", cta_track:"ದೂರನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಿ",
+live_line:"ಇಲ್ಲಿಯವರೆಗೆ <b>{t}</b> ದೂರುಗಳು ಸಲ್ಲಿಕೆಯಾಗಿವೆ, <b>{r}</b> ಬಗೆಹರಿದಿವೆ.",
+sample_note:"ಸಲ್ಲಿಸಿದ ನಂತರ ನಿಮಗೆ ಇಂತಹ ರಸೀದಿ ಸಿಗುತ್ತದೆ. ಉದಾಹರಣೆ:", receipt:"ದೂರು ರಸೀದಿ",
+sample_title:"ಮಾರುಕಟ್ಟೆ ರಸ್ತೆ ಬಳಿ ಗುಂಡಿ", sample_route:"ರಸ್ತೆಗಳು ಮತ್ತು ಗುಂಡಿಗಳು, ಕಳುಹಿಸಿದ್ದು: <b>ಲೋಕೋಪಯೋಗಿ ಇಲಾಖೆ</b>",
+sample_deadline:"ಸಲ್ಲಿಸಿದ 3 ದಿನಗಳೊಳಗೆ ಪರಿಹರಿಸಬೇಕು", on_track:"ಸಮಯಕ್ಕೆ ಸರಿಯಾಗಿದೆ",
+st_Pending:"ಬಾಕಿ", st_Assigned:"ನಿಯೋಜಿಸಲಾಗಿದೆ", "st_In Progress":"ಕೆಲಸ ನಡೆಯುತ್ತಿದೆ", st_Resolved:"ಬಗೆಹರಿದಿದೆ",
+how_h:"ದೂರಿನಿಂದ ಪರಿಹಾರದವರೆಗೆ",
+how1_t:"ವಿವರಿಸಿ", how1_p:"ಶೀರ್ಷಿಕೆ ಮತ್ತು ಕೆಲವು ಸಾಲುಗಳನ್ನು ಬರೆಯಿರಿ, ನಕ್ಷೆಯಲ್ಲಿ ಸ್ಥಳ ಗುರುತಿಸಿ, ಬೇಕಿದ್ದರೆ ಚಿಕ್ಕ ವೀಡಿಯೊ ಸೇರಿಸಿ.",
+how2_t:"ಸರಿಯಾದ ಕಡೆ ಕಳುಹಿಸಲಾಗುತ್ತದೆ", how2_p:"ನಿಮ್ಮ ಮಾತುಗಳಿಂದ ವಿಧವನ್ನು ಗುರುತಿಸಿ, ಜವಾಬ್ದಾರಿಯುತ ಇಲಾಖೆಗೆ ಗಡುವಿನೊಂದಿಗೆ ಕಳುಹಿಸಲಾಗುತ್ತದೆ.",
+how3_t:"ನೀವು ಹಿಂಬಾಲಿಸಿ", how3_p:"ಟ್ರ್ಯಾಕಿಂಗ್ ಐಡಿಯಿಂದ ಯಾವಾಗ ಬೇಕಾದರೂ ಸ್ಥಿತಿ ನೋಡಿ. ಗಡುವು ತಪ್ಪಿದರೆ ದೂರನ್ನು ಗುರುತಿಸಿ ಮೇಲಿನ ಹಂತಕ್ಕೆ ಕಳುಹಿಸಲಾಗುತ್ತದೆ.",
+submit_h:"ದೂರು ಸಲ್ಲಿಸಿ", submit_p:"ಏನು ಸಮಸ್ಯೆ ಎಂದು ತಿಳಿಸಿ. ವಿಧ ಮತ್ತು ಇಲಾಖೆ ತಾನಾಗಿಯೇ ಪತ್ತೆಯಾಗುತ್ತವೆ.",
+fs_what:"ಏನಾಯಿತು", f_title:"ಶೀರ್ಷಿಕೆ", f_title_ph:"ಉದಾ. ಮಾರುಕಟ್ಟೆ ರಸ್ತೆ ಬಳಿ ಗುಂಡಿ",
+f_desc:"ವಿವರಣೆ", f_desc_ph:"ಸಮಸ್ಯೆಯನ್ನು ವಿವರವಾಗಿ ಬರೆಯಿರಿ...",
+f_cat:"ವಿಧ", f_cat_note:"(ಐಚ್ಛಿಕ, ಸ್ವಯಂ-ಪತ್ತೆಯಲ್ಲೇ ಬಿಡಿ)", cat_auto:"ಸ್ವಯಂ-ಪತ್ತೆ",
+fs_where:"ಎಲ್ಲಿ", f_loc:"ಪ್ರದೇಶ ಅಥವಾ ಗುರುತು", f_loc_ph:"ಉದಾ. ಸೆಕ್ಟರ್ 12, ಬಸ್ ನಿಲ್ದಾಣದ ಬಳಿ",
+f_pin:"ನಿಖರ ಸ್ಥಳ ಗುರುತಿಸಿ", f_pin_note:"(ನಕ್ಷೆಯ ಮೇಲೆ ಕ್ಲಿಕ್ ಮಾಡಿ)",
+fs_extras:"ಹೆಚ್ಚುವರಿ", f_video:"ವೀಡಿಯೊ", opt:"(ಐಚ್ಛಿಕ)",
+cam_start:"ಕ್ಯಾಮೆರಾ ಆರಂಭಿಸಿ", cam_switch:"ಕ್ಯಾಮೆರಾ ಬದಲಿಸಿ", cam_record:"ರೆಕಾರ್ಡ್", cam_stop:"ನಿಲ್ಲಿಸಿ", cam_retake:"ಮತ್ತೆ ತೆಗೆಯಿರಿ",
+video_hint:"ಸಮಸ್ಯೆಯನ್ನು ವಿವರಿಸುವ ಚಿಕ್ಕ ವೀಡಿಯೊ ರೆಕಾರ್ಡ್ ಮಾಡಿ.",
+f_contact:"ಸಂಪರ್ಕ", f_contact_note:"(ಇಮೇಲ್ ಅಥವಾ ಫೋನ್, ಅಪ್‌ಡೇಟ್‌ಗಳಿಗಾಗಿ)", f_contact_ph:"ಐಚ್ಛಿಕ",
+btn_submit:"ದೂರು ಸಲ್ಲಿಸಿ",
+slot_h:"ನಿಮ್ಮ ರಸೀದಿ ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ", slot_p:"ಸಲ್ಲಿಸಿದ ನಂತರ ಟ್ರ್ಯಾಕಿಂಗ್ ಐಡಿ, ಕಳುಹಿಸಿದ ಇಲಾಖೆ ಮತ್ತು ಗಡುವು ಸಿಗುತ್ತದೆ. ನಂತರ ಪ್ರಗತಿ ನೋಡಲು ಐಡಿಯನ್ನು ಉಳಿಸಿಕೊಳ್ಳಿ.",
+track_h:"ದೂರನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಿ", track_p:"ಸಲ್ಲಿಸಿದಾಗ ಸಿಕ್ಕ ಟ್ರ್ಯಾಕಿಂಗ್ ಐಡಿಯನ್ನು ನಮೂದಿಸಿ.", f_track:"ಟ್ರ್ಯಾಕಿಂಗ್ ಐಡಿ", btn_track:"ಟ್ರ್ಯಾಕ್ ಮಾಡಿ",
+admin_h:"ಅಡ್ಮಿನ್ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್", admin_p:"ಎಲ್ಲಾ ದೂರುಗಳು, ಸ್ಥಿತಿ ಬದಲಾವಣೆಗಳು ಮತ್ತು ಗಡುವು ತಪ್ಪಿದವು ಒಂದೇ ಕಡೆ.",
+all_status:"ಎಲ್ಲಾ ಸ್ಥಿತಿಗಳು", all_dept:"ಎಲ್ಲಾ ಇಲಾಖೆಗಳು", aria_status:"ಸ್ಥಿತಿಯ ಪ್ರಕಾರ ಸೋಸಿ", aria_dept:"ಇಲಾಖೆಯ ಪ್ರಕಾರ ಸೋಸಿ", btn_refresh:"ರಿಫ್ರೆಶ್",
+th_id:"ಐಡಿ", th_title:"ಶೀರ್ಷಿಕೆ", th_cat:"ವಿಧ", th_dept:"ಇಲಾಖೆ", th_status:"ಸ್ಥಿತಿ", th_deadline:"ಗಡುವು", th_video:"ವೀಡಿಯೊ", th_update:"ಸ್ಥಿತಿ ಬದಲಿಸಿ",
+stat_total:"ಒಟ್ಟು ದೂರುಗಳು", stat_pending:"ಬಾಕಿ", stat_resolved:"ಬಗೆಹರಿದವು", stat_overdue:"ಗಡುವು ತಪ್ಪಿದವು",
+heat_h:"ದೂರುಗಳ ಹೀಟ್‌ಮ್ಯಾಪ್", heat_p:"ಎಲ್ಲಿಂದ ಯಾವ ರೀತಿಯ ದೂರುಗಳು ಬರುತ್ತಿವೆ. ಪಾರದರ್ಶಕತೆಗಾಗಿ ಎಲ್ಲರಿಗೂ ಲಭ್ಯ.",
+foot_l:"ONOCP ಕೃಷ್ಣಕಾಂತ್ ರೂಪಿಸಿದ ಸಿವಿಕ್-ಟೆಕ್ ಮೂಲಮಾದರಿ.", foot_r:"ನಕ್ಷೆ ಡೇಟಾ © OpenStreetMap ಕೊಡುಗೆದಾರರು",
+hint_nopin:"ಇನ್ನೂ ಸ್ಥಳ ಗುರುತಿಸಿಲ್ಲ. ನಕ್ಷೆಯ ಮೇಲೆ ಕ್ಲಿಕ್ ಮಾಡಿ.", hint_pinset:"ಸ್ಥಳ ಗುರುತಿಸಲಾಗಿದೆ: {c}",
+hint_map_fail:"ಸ್ಥಳ ಗುರುತಿಸುವುದು ಐಚ್ಛಿಕ. ಅದಿಲ್ಲದೆಯೂ ಸಲ್ಲಿಸಬಹುದು.",
+map_fail:"ನಕ್ಷೆ ಲೋಡ್ ಆಗಲಿಲ್ಲ. ಪುಟವನ್ನು ರಿಫ್ರೆಶ್ ಮಾಡಿ. ಪ್ರದೇಶ ಅಥವಾ ಗುರುತನ್ನು ಬರೆದು ಈಗಲೂ ದೂರು ಸಲ್ಲಿಸಬಹುದು.",
+heat_fail:"ಹೀಟ್‌ಮ್ಯಾಪ್ ಲೋಡ್ ಆಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.", heat_empty:"ಸ್ಥಳ ಇರುವ ದೂರುಗಳು ಇನ್ನೂ ಇಲ್ಲ. ದೂರು ಸಲ್ಲಿಸುವಾಗ ಸ್ಥಳ ಗುರುತಿಸಿದರೆ ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತದೆ.",
+err_short:"ಶೀರ್ಷಿಕೆ ಮತ್ತು ವಿವರಣೆಯನ್ನು ಸ್ವಲ್ಪ ಹೆಚ್ಚು ವಿವರವಾಗಿ ಬರೆಯಿರಿ.",
+err_conn:"ಸರ್ವರ್ ಸಂಪರ್ಕ ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ (ಉಚಿತ ಸರ್ವರ್ ಎಚ್ಚರಗೊಳ್ಳಲು ಒಂದು ನಿಮಿಷ ಬೇಕಾಗಬಹುದು).",
+err_conn_short:"ಸರ್ವರ್ ಸಂಪರ್ಕ ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.", uploading:"ವೀಡಿಯೊ ಅಪ್‌ಲೋಡ್ ಆಗುತ್ತಿದೆ...",
+err_id_empty:"ಮೊದಲು ಟ್ರ್ಯಾಕಿಂಗ್ ಐಡಿ ನಮೂದಿಸಿ, ಉದಾ. ONOCP-AB12CD.", err_id_notfound:"ಈ ಟ್ರ್ಯಾಕಿಂಗ್ ಐಡಿ ಸಿಗಲಿಲ್ಲ. ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+cam_denied:"ಕ್ಯಾಮೆರಾ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ ಅಥವಾ ಕ್ಯಾಮೆರಾ ಲಭ್ಯವಿಲ್ಲ.",
+sla_breached:"ಗಡುವು ತಪ್ಪಿದೆ", sla_breached_esc:"ಗಡುವು ತಪ್ಪಿದೆ, ಮೇಲಕ್ಕೆ ಕಳುಹಿಸಲಾಗಿದೆ", resolve_by:"{d} ಒಳಗೆ ಪರಿಹರಿಸಬೇಕು", none:"ಇಲ್ಲ", view:"ನೋಡಿ",
+no_complaints:"ಇನ್ನೂ ದೂರುಗಳಿಲ್ಲ. ಸಲ್ಲಿಸಿದ ದೂರುಗಳು ಇಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.", aria_update:"{id} ಸ್ಥಿತಿ ಬದಲಿಸಿ"
+};
+
+/* ===== മലയാളം ===== */
+T['ml'] = {
+brand_sub:"ഒരു രാജ്യം, ഒരു പരാതി പോർട്ടൽ", aria_home:"ONOCP ഹോം",
+nav_home:"ഹോം", nav_submit:"പരാതി നൽകുക", nav_track:"ട്രാക്ക് ചെയ്യുക", nav_heatmap:"ഹീറ്റ്മാപ്പ്", nav_admin:"അഡ്മിൻ",
+lang_title:"നിങ്ങളുടെ ഭാഷ തിരഞ്ഞെടുക്കുക", lang_strip:"11 ഭാഷകളിൽ ലഭ്യമാണ്:",
+hero_h1:"ഒരിക്കൽ നൽകൂ. ശരിയായ വകുപ്പിലെത്തും.",
+hero_sub:"പ്രശ്നം എഴുതി മാപ്പിൽ സ്ഥലം അടയാളപ്പെടുത്തുക. ONOCP ശരിയായ വകുപ്പ് തിരഞ്ഞെടുത്ത് സമയപരിധി നിശ്ചയിച്ച് നിങ്ങൾക്ക് ഒരു ഐഡി നൽകും. പരിഹരിക്കപ്പെടുന്നതുവരെ അതുപയോഗിച്ച് പിന്തുടരാം.",
+cta_file:"പരാതി നൽകുക", cta_track:"പരാതി ട്രാക്ക് ചെയ്യുക",
+live_line:"ഇതുവരെ <b>{t}</b> പരാതികൾ രജിസ്റ്റർ ചെയ്തു, <b>{r}</b> പരിഹരിച്ചു.",
+sample_note:"പരാതി നൽകിയ ശേഷം നിങ്ങൾക്ക് ഇതുപോലൊരു രസീത് ലഭിക്കും. ഉദാഹരണം:", receipt:"പരാതി രസീത്",
+sample_title:"മാർക്കറ്റ് റോഡിനടുത്ത് കുഴി", sample_route:"റോഡുകളും കുഴികളും, അയച്ചത്: <b>പൊതുമരാമത്ത് വകുപ്പ്</b>",
+sample_deadline:"നൽകിയതിന് 3 ദിവസത്തിനകം പരിഹരിക്കണം", on_track:"സമയത്തിനുള്ളിൽ",
+st_Pending:"തീർപ്പാകാത്തത്", st_Assigned:"ചുമതലപ്പെടുത്തി", "st_In Progress":"പ്രവർത്തനത്തിൽ", st_Resolved:"പരിഹരിച്ചു",
+how_h:"പരാതി മുതൽ പരിഹാരം വരെ",
+how1_t:"വിവരിക്കുക", how1_p:"തലക്കെട്ടും കുറച്ചു വരികളും എഴുതുക, മാപ്പിൽ സ്ഥലം അടയാളപ്പെടുത്തുക, വേണമെങ്കിൽ ചെറിയ വീഡിയോ ചേർക്കുക.",
+how2_t:"ശരിയായ ഇടത്തേക്ക് അയയ്ക്കുന്നു", how2_p:"നിങ്ങളുടെ വാക്കുകളിൽ നിന്ന് ഇനം തിരിച്ചറിഞ്ഞ്, ഉത്തരവാദപ്പെട്ട വകുപ്പിലേക്ക് സമയപരിധിയോടെ അയയ്ക്കുന്നു.",
+how3_t:"നിങ്ങൾ പിന്തുടരുക", how3_p:"ട്രാക്കിങ് ഐഡി ഉപയോഗിച്ച് എപ്പോൾ വേണമെങ്കിലും നില കാണാം. സമയപരിധി തെറ്റിയാൽ പരാതി അടയാളപ്പെടുത്തി ഉയർന്ന തലത്തിലേക്ക് അയയ്ക്കും.",
+submit_h:"പരാതി നൽകുക", submit_p:"എന്താണ് പ്രശ്നമെന്ന് പറയൂ. ഇനവും വകുപ്പും സ്വയം കണ്ടെത്തും.",
+fs_what:"എന്താണ് സംഭവിച്ചത്", f_title:"തലക്കെട്ട്", f_title_ph:"ഉദാ. മാർക്കറ്റ് റോഡിനടുത്ത് കുഴി",
+f_desc:"വിവരണം", f_desc_ph:"പ്രശ്നം വിശദമായി എഴുതുക...",
+f_cat:"ഇനം", f_cat_note:"(ഓപ്ഷണൽ, ഓട്ടോ-ഡിറ്റക്ട് ആയി വിടുക)", cat_auto:"ഓട്ടോ-ഡിറ്റക്ട്",
+fs_where:"എവിടെ", f_loc:"പ്രദേശം അല്ലെങ്കിൽ അടയാളം", f_loc_ph:"ഉദാ. സെക്ടർ 12, ബസ് സ്റ്റാൻഡിനടുത്ത്",
+f_pin:"കൃത്യമായ സ്ഥലം അടയാളപ്പെടുത്തുക", f_pin_note:"(മാപ്പിൽ ക്ലിക്ക് ചെയ്യുക)",
+fs_extras:"അധികം", f_video:"വീഡിയോ", opt:"(ഓപ്ഷണൽ)",
+cam_start:"ക്യാമറ ആരംഭിക്കുക", cam_switch:"ക്യാമറ മാറ്റുക", cam_record:"റെക്കോർഡ്", cam_stop:"നിർത്തുക", cam_retake:"വീണ്ടും എടുക്കുക",
+video_hint:"പ്രശ്നം വിശദീകരിക്കുന്ന ചെറിയ വീഡിയോ റെക്കോർഡ് ചെയ്യുക.",
+f_contact:"ബന്ധപ്പെടാൻ", f_contact_note:"(ഇമെയിൽ അല്ലെങ്കിൽ ഫോൺ, അപ്ഡേറ്റുകൾക്ക്)", f_contact_ph:"ഓപ്ഷണൽ",
+btn_submit:"പരാതി സമർപ്പിക്കുക",
+slot_h:"നിങ്ങളുടെ രസീത് ഇവിടെ കാണാം", slot_p:"സമർപ്പിച്ച ശേഷം ട്രാക്കിങ് ഐഡി, അയച്ച വകുപ്പ്, സമയപരിധി എന്നിവ ലഭിക്കും. പിന്നീട് പുരോഗതി അറിയാൻ ഐഡി സൂക്ഷിക്കുക.",
+track_h:"പരാതി ട്രാക്ക് ചെയ്യുക", track_p:"പരാതി നൽകിയപ്പോൾ ലഭിച്ച ട്രാക്കിങ് ഐഡി നൽകുക.", f_track:"ട്രാക്കിങ് ഐഡി", btn_track:"ട്രാക്ക് ചെയ്യുക",
+admin_h:"അഡ്മിൻ ഡാഷ്ബോർഡ്", admin_p:"എല്ലാ പരാതികളും നില മാറ്റങ്ങളും സമയപരിധി തെറ്റിയവയും ഒരിടത്ത്.",
+all_status:"എല്ലാ നിലകളും", all_dept:"എല്ലാ വകുപ്പുകളും", aria_status:"നില അനുസരിച്ച് തിരിക്കുക", aria_dept:"വകുപ്പ് അനുസരിച്ച് തിരിക്കുക", btn_refresh:"റിഫ്രഷ്",
+th_id:"ഐഡി", th_title:"തലക്കെട്ട്", th_cat:"ഇനം", th_dept:"വകുപ്പ്", th_status:"നില", th_deadline:"സമയപരിധി", th_video:"വീഡിയോ", th_update:"നില മാറ്റുക",
+stat_total:"ആകെ പരാതികൾ", stat_pending:"തീർപ്പാകാത്തത്", stat_resolved:"പരിഹരിച്ചവ", stat_overdue:"സമയപരിധി തെറ്റിയവ",
+heat_h:"പരാതി ഹീറ്റ്മാപ്പ്", heat_p:"എവിടെ നിന്ന് ഏതുതരം പരാതികൾ വരുന്നു. സുതാര്യതയ്ക്കായി എല്ലാവർക്കും ലഭ്യം.",
+foot_l:"ONOCP കൃഷ്ണകാന്ത് നിർമ്മിച്ച സിവിക്-ടെക് പ്രോട്ടോടൈപ്പ് ആണ്.", foot_r:"മാപ്പ് ഡാറ്റ © OpenStreetMap സംഭാവകർ",
+hint_nopin:"ഇതുവരെ സ്ഥലം അടയാളപ്പെടുത്തിയിട്ടില്ല. മാപ്പിൽ ക്ലിക്ക് ചെയ്യുക.", hint_pinset:"സ്ഥലം അടയാളപ്പെടുത്തി: {c}",
+hint_map_fail:"സ്ഥലം അടയാളപ്പെടുത്തുന്നത് ഓപ്ഷണലാണ്. അതില്ലാതെയും സമർപ്പിക്കാം.",
+map_fail:"മാപ്പ് ലോഡ് ആയില്ല. പേജ് റിഫ്രഷ് ചെയ്യുക. പ്രദേശമോ അടയാളമോ എഴുതി പരാതി നൽകാം.",
+heat_fail:"ഹീറ്റ്മാപ്പ് ലോഡ് ആയില്ല. വീണ്ടും ശ്രമിക്കുക.", heat_empty:"ലൊക്കേഷനുള്ള പരാതികൾ ഇതുവരെയില്ല. പരാതി നൽകുമ്പോൾ സ്ഥലം അടയാളപ്പെടുത്തിയാൽ ഇവിടെ കാണാം.",
+err_short:"തലക്കെട്ടും വിവരണവും അൽപ്പം കൂടി വിശദമായി എഴുതുക.",
+err_conn:"സെർവറുമായി ബന്ധപ്പെടാൻ കഴിഞ്ഞില്ല. അൽപ്പം കഴിഞ്ഞ് വീണ്ടും ശ്രമിക്കുക (സൗജന്യ സെർവർ ഉണരാൻ ഒരു മിനിറ്റ് എടുത്തേക്കാം).",
+err_conn_short:"സെർവറുമായി ബന്ധപ്പെടാൻ കഴിഞ്ഞില്ല.", uploading:"വീഡിയോ അപ്‌ലോഡ് ചെയ്യുന്നു...",
+err_id_empty:"ആദ്യം ട്രാക്കിങ് ഐഡി നൽകുക, ഉദാ. ONOCP-AB12CD.", err_id_notfound:"ഈ ട്രാക്കിങ് ഐഡി കണ്ടെത്തിയില്ല. പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക.",
+cam_denied:"ക്യാമറ അനുമതി നിഷേധിച്ചു അല്ലെങ്കിൽ ക്യാമറ ലഭ്യമല്ല.",
+sla_breached:"സമയപരിധി തെറ്റി", sla_breached_esc:"സമയപരിധി തെറ്റി, ഉയർന്ന തലത്തിലേക്ക് അയച്ചു", resolve_by:"{d}-നകം പരിഹരിക്കണം", none:"ഇല്ല", view:"കാണുക",
+no_complaints:"ഇതുവരെ പരാതികളില്ല. സമർപ്പിച്ച പരാതികൾ ഇവിടെ കാണാം.", aria_update:"{id}-ന്റെ നില മാറ്റുക"
+};
+
+/* ===== ਪੰਜਾਬੀ ===== */
+T['pa'] = {
+brand_sub:"ਇੱਕ ਦੇਸ਼, ਇੱਕ ਸ਼ਿਕਾਇਤ ਪੋਰਟਲ", aria_home:"ONOCP ਹੋਮ",
+nav_home:"ਹੋਮ", nav_submit:"ਸ਼ਿਕਾਇਤ ਦਰਜ ਕਰੋ", nav_track:"ਟ੍ਰੈਕ ਕਰੋ", nav_heatmap:"ਹੀਟਮੈਪ", nav_admin:"ਐਡਮਿਨ",
+lang_title:"ਆਪਣੀ ਭਾਸ਼ਾ ਚੁਣੋ", lang_strip:"11 ਭਾਸ਼ਾਵਾਂ ਵਿੱਚ ਉਪਲਬਧ:",
+hero_h1:"ਇੱਕ ਵਾਰ ਦਰਜ ਕਰੋ। ਸਹੀ ਵਿਭਾਗ ਤੱਕ ਪਹੁੰਚੇਗੀ।",
+hero_sub:"ਸਮੱਸਿਆ ਲਿਖੋ ਅਤੇ ਨਕਸ਼ੇ ਉੱਤੇ ਥਾਂ ਚੁਣੋ। ONOCP ਸਹੀ ਵਿਭਾਗ ਚੁਣਦਾ ਹੈ, ਸਮਾਂ-ਸੀਮਾ ਤੈਅ ਕਰਦਾ ਹੈ ਅਤੇ ਤੁਹਾਨੂੰ ਇੱਕ ਆਈਡੀ ਦਿੰਦਾ ਹੈ, ਜਿਸ ਨਾਲ ਹੱਲ ਹੋਣ ਤੱਕ ਤੁਸੀਂ ਦੇਖ ਸਕਦੇ ਹੋ।",
+cta_file:"ਸ਼ਿਕਾਇਤ ਦਰਜ ਕਰੋ", cta_track:"ਸ਼ਿਕਾਇਤ ਟ੍ਰੈਕ ਕਰੋ",
+live_line:"ਹੁਣ ਤੱਕ <b>{t}</b> ਸ਼ਿਕਾਇਤਾਂ ਦਰਜ ਹੋਈਆਂ, <b>{r}</b> ਹੱਲ ਹੋਈਆਂ।",
+sample_note:"ਦਰਜ ਕਰਨ ਤੋਂ ਬਾਅਦ ਤੁਹਾਨੂੰ ਇਹੋ ਜਿਹੀ ਰਸੀਦ ਮਿਲਦੀ ਹੈ। ਮਿਸਾਲ:", receipt:"ਸ਼ਿਕਾਇਤ ਰਸੀਦ",
+sample_title:"ਮਾਰਕੀਟ ਰੋਡ ਕੋਲ ਟੋਆ", sample_route:"ਸੜਕਾਂ ਅਤੇ ਟੋਏ, ਭੇਜਿਆ: <b>ਲੋਕ ਨਿਰਮਾਣ ਵਿਭਾਗ</b>",
+sample_deadline:"ਦਰਜ ਹੋਣ ਤੋਂ 3 ਦਿਨਾਂ ਵਿੱਚ ਹੱਲ ਕਰਨੀ ਹੈ", on_track:"ਸਮੇਂ ਸਿਰ",
+st_Pending:"ਬਕਾਇਆ", st_Assigned:"ਸੌਂਪੀ ਗਈ", "st_In Progress":"ਕੰਮ ਜਾਰੀ", st_Resolved:"ਹੱਲ ਹੋਈ",
+how_h:"ਸ਼ਿਕਾਇਤ ਤੋਂ ਹੱਲ ਤੱਕ",
+how1_t:"ਸਮੱਸਿਆ ਦੱਸੋ", how1_p:"ਸਿਰਲੇਖ ਅਤੇ ਕੁਝ ਲਾਈਨਾਂ ਲਿਖੋ, ਨਕਸ਼ੇ ਉੱਤੇ ਥਾਂ ਚੁਣੋ ਅਤੇ ਚਾਹੋ ਤਾਂ ਛੋਟੀ ਵੀਡੀਓ ਜੋੜੋ।",
+how2_t:"ਸਹੀ ਥਾਂ ਭੇਜੀ ਜਾਂਦੀ ਹੈ", how2_p:"ਤੁਹਾਡੇ ਸ਼ਬਦਾਂ ਤੋਂ ਕਿਸਮ ਪਛਾਣੀ ਜਾਂਦੀ ਹੈ ਅਤੇ ਜ਼ਿੰਮੇਵਾਰ ਵਿਭਾਗ ਨੂੰ ਸਮਾਂ-ਸੀਮਾ ਨਾਲ ਭੇਜੀ ਜਾਂਦੀ ਹੈ।",
+how3_t:"ਤੁਸੀਂ ਟ੍ਰੈਕ ਕਰੋ", how3_p:"ਟ੍ਰੈਕਿੰਗ ਆਈਡੀ ਨਾਲ ਕਦੇ ਵੀ ਸਥਿਤੀ ਦੇਖੋ। ਸਮਾਂ-ਸੀਮਾ ਖੁੰਝ ਜਾਵੇ ਤਾਂ ਸ਼ਿਕਾਇਤ ਚਿੰਨ੍ਹਿਤ ਹੋ ਕੇ ਉੱਪਰ ਭੇਜੀ ਜਾਂਦੀ ਹੈ।",
+submit_h:"ਸ਼ਿਕਾਇਤ ਦਰਜ ਕਰੋ", submit_p:"ਦੱਸੋ ਕੀ ਸਮੱਸਿਆ ਹੈ। ਕਿਸਮ ਅਤੇ ਵਿਭਾਗ ਆਪਣੇ ਆਪ ਤੈਅ ਹੋ ਜਾਣਗੇ।",
+fs_what:"ਕੀ ਹੋਇਆ", f_title:"ਸਿਰਲੇਖ", f_title_ph:"ਜਿਵੇਂ: ਮਾਰਕੀਟ ਰੋਡ ਕੋਲ ਟੋਆ",
+f_desc:"ਵੇਰਵਾ", f_desc_ph:"ਸਮੱਸਿਆ ਵਿਸਥਾਰ ਨਾਲ ਲਿਖੋ...",
+f_cat:"ਕਿਸਮ", f_cat_note:"(ਚੋਣਵੀਂ, ਆਪਣੇ ਆਪ ਪਛਾਣ ਉੱਤੇ ਛੱਡ ਦਿਓ)", cat_auto:"ਆਪਣੇ ਆਪ ਪਛਾਣੋ",
+fs_where:"ਕਿੱਥੇ", f_loc:"ਇਲਾਕਾ ਜਾਂ ਨਿਸ਼ਾਨੀ", f_loc_ph:"ਜਿਵੇਂ: ਸੈਕਟਰ 12, ਬੱਸ ਸਟੈਂਡ ਕੋਲ",
+f_pin:"ਸਹੀ ਥਾਂ ਚੁਣੋ", f_pin_note:"(ਨਕਸ਼ੇ ਉੱਤੇ ਕਲਿੱਕ ਕਰੋ)",
+fs_extras:"ਵਾਧੂ", f_video:"ਵੀਡੀਓ", opt:"(ਚੋਣਵੀਂ)",
+cam_start:"ਕੈਮਰਾ ਚਾਲੂ ਕਰੋ", cam_switch:"ਕੈਮਰਾ ਬਦਲੋ", cam_record:"ਰਿਕਾਰਡ", cam_stop:"ਰੋਕੋ", cam_retake:"ਦੁਬਾਰਾ ਲਓ",
+video_hint:"ਸਮੱਸਿਆ ਸਮਝਾਉਣ ਵਾਲੀ ਛੋਟੀ ਵੀਡੀਓ ਰਿਕਾਰਡ ਕਰੋ।",
+f_contact:"ਸੰਪਰਕ", f_contact_note:"(ਈਮੇਲ ਜਾਂ ਫ਼ੋਨ, ਅੱਪਡੇਟ ਲਈ)", f_contact_ph:"ਚੋਣਵਾਂ",
+btn_submit:"ਸ਼ਿਕਾਇਤ ਜਮ੍ਹਾਂ ਕਰੋ",
+slot_h:"ਤੁਹਾਡੀ ਰਸੀਦ ਇੱਥੇ ਦਿਖੇਗੀ", slot_p:"ਜਮ੍ਹਾਂ ਕਰਨ ਤੋਂ ਬਾਅਦ ਤੁਹਾਨੂੰ ਟ੍ਰੈਕਿੰਗ ਆਈਡੀ, ਸੰਬੰਧਿਤ ਵਿਭਾਗ ਅਤੇ ਸਮਾਂ-ਸੀਮਾ ਮਿਲੇਗੀ। ਬਾਅਦ ਵਿੱਚ ਸਥਿਤੀ ਦੇਖਣ ਲਈ ਆਈਡੀ ਸੰਭਾਲ ਲਓ।",
+track_h:"ਸ਼ਿਕਾਇਤ ਟ੍ਰੈਕ ਕਰੋ", track_p:"ਦਰਜ ਕਰਨ ਵੇਲੇ ਮਿਲੀ ਟ੍ਰੈਕਿੰਗ ਆਈਡੀ ਪਾਓ।", f_track:"ਟ੍ਰੈਕਿੰਗ ਆਈਡੀ", btn_track:"ਟ੍ਰੈਕ ਕਰੋ",
+admin_h:"ਐਡਮਿਨ ਡੈਸ਼ਬੋਰਡ", admin_p:"ਸਾਰੀਆਂ ਸ਼ਿਕਾਇਤਾਂ, ਸਥਿਤੀ ਅੱਪਡੇਟ ਅਤੇ ਸਮਾਂ-ਸੀਮਾ ਖੁੰਝੇ ਮਾਮਲੇ ਇੱਕ ਥਾਂ।",
+all_status:"ਸਾਰੀਆਂ ਸਥਿਤੀਆਂ", all_dept:"ਸਾਰੇ ਵਿਭਾਗ", aria_status:"ਸਥਿਤੀ ਮੁਤਾਬਕ ਛਾਂਟੋ", aria_dept:"ਵਿਭਾਗ ਮੁਤਾਬਕ ਛਾਂਟੋ", btn_refresh:"ਰੀਫ੍ਰੈਸ਼",
+th_id:"ਆਈਡੀ", th_title:"ਸਿਰਲੇਖ", th_cat:"ਕਿਸਮ", th_dept:"ਵਿਭਾਗ", th_status:"ਸਥਿਤੀ", th_deadline:"ਸਮਾਂ-ਸੀਮਾ", th_video:"ਵੀਡੀਓ", th_update:"ਸਥਿਤੀ ਬਦਲੋ",
+stat_total:"ਕੁੱਲ ਸ਼ਿਕਾਇਤਾਂ", stat_pending:"ਬਕਾਇਆ", stat_resolved:"ਹੱਲ ਹੋਈਆਂ", stat_overdue:"ਸਮਾਂ-ਸੀਮਾ ਖੁੰਝੀ",
+heat_h:"ਸ਼ਿਕਾਇਤ ਹੀਟਮੈਪ", heat_p:"ਕਿੱਥੋਂ ਕਿਹੋ ਜਿਹੀਆਂ ਸ਼ਿਕਾਇਤਾਂ ਆ ਰਹੀਆਂ ਹਨ। ਪਾਰਦਰਸ਼ਤਾ ਲਈ ਸਭ ਲਈ ਖੁੱਲ੍ਹਾ।",
+foot_l:"ONOCP ਕ੍ਰਿਸ਼ਨਕਾਂਤ ਦਾ ਬਣਾਇਆ ਸਿਵਿਕ-ਟੈੱਕ ਪ੍ਰੋਟੋਟਾਈਪ ਹੈ।", foot_r:"ਨਕਸ਼ਾ ਡੇਟਾ © OpenStreetMap ਯੋਗਦਾਨੀ",
+hint_nopin:"ਹਾਲੇ ਥਾਂ ਨਹੀਂ ਚੁਣੀ। ਨਕਸ਼ੇ ਉੱਤੇ ਕਲਿੱਕ ਕਰੋ।", hint_pinset:"ਥਾਂ ਚੁਣੀ ਗਈ: {c}",
+hint_map_fail:"ਥਾਂ ਚੁਣਨਾ ਚੋਣਵਾਂ ਹੈ। ਇਸ ਤੋਂ ਬਿਨਾਂ ਵੀ ਜਮ੍ਹਾਂ ਕਰ ਸਕਦੇ ਹੋ।",
+map_fail:"ਨਕਸ਼ਾ ਲੋਡ ਨਹੀਂ ਹੋਇਆ। ਪੇਜ ਰੀਫ੍ਰੈਸ਼ ਕਰੋ। ਇਲਾਕਾ ਜਾਂ ਨਿਸ਼ਾਨੀ ਲਿਖ ਕੇ ਸ਼ਿਕਾਇਤ ਫਿਰ ਵੀ ਦਰਜ ਕਰ ਸਕਦੇ ਹੋ।",
+heat_fail:"ਹੀਟਮੈਪ ਲੋਡ ਨਹੀਂ ਹੋਇਆ। ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।", heat_empty:"ਹਾਲੇ ਲੋਕੇਸ਼ਨ ਵਾਲੀ ਕੋਈ ਸ਼ਿਕਾਇਤ ਨਹੀਂ। ਸ਼ਿਕਾਇਤ ਦਰਜ ਕਰਦੇ ਸਮੇਂ ਥਾਂ ਚੁਣੋ, ਉਹ ਇੱਥੇ ਦਿਖੇਗੀ।",
+err_short:"ਸਿਰਲੇਖ ਅਤੇ ਵੇਰਵਾ ਥੋੜ੍ਹਾ ਹੋਰ ਵਿਸਥਾਰ ਨਾਲ ਲਿਖੋ।",
+err_conn:"ਸਰਵਰ ਨਾਲ ਜੁੜ ਨਹੀਂ ਸਕੇ। ਥੋੜ੍ਹੀ ਦੇਰ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ (ਮੁਫ਼ਤ ਸਰਵਰ ਨੂੰ ਜਾਗਣ ਵਿੱਚ ਇੱਕ ਮਿੰਟ ਲੱਗ ਸਕਦਾ ਹੈ)।",
+err_conn_short:"ਸਰਵਰ ਨਾਲ ਜੁੜ ਨਹੀਂ ਸਕੇ।", uploading:"ਵੀਡੀਓ ਅੱਪਲੋਡ ਹੋ ਰਹੀ ਹੈ...",
+err_id_empty:"ਪਹਿਲਾਂ ਟ੍ਰੈਕਿੰਗ ਆਈਡੀ ਪਾਓ, ਜਿਵੇਂ ONOCP-AB12CD।", err_id_notfound:"ਇਹ ਟ੍ਰੈਕਿੰਗ ਆਈਡੀ ਨਹੀਂ ਮਿਲੀ। ਜਾਂਚ ਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+cam_denied:"ਕੈਮਰੇ ਦੀ ਇਜਾਜ਼ਤ ਨਹੀਂ ਮਿਲੀ ਜਾਂ ਕੈਮਰਾ ਉਪਲਬਧ ਨਹੀਂ।",
+sla_breached:"ਸਮਾਂ-ਸੀਮਾ ਖੁੰਝੀ", sla_breached_esc:"ਸਮਾਂ-ਸੀਮਾ ਖੁੰਝੀ, ਉੱਪਰ ਭੇਜੀ ਗਈ", resolve_by:"{d} ਤੱਕ ਹੱਲ ਕਰਨੀ ਹੈ", none:"ਕੋਈ ਨਹੀਂ", view:"ਦੇਖੋ",
+no_complaints:"ਹਾਲੇ ਕੋਈ ਸ਼ਿਕਾਇਤ ਨਹੀਂ। ਦਰਜ ਸ਼ਿਕਾਇਤਾਂ ਇੱਥੇ ਦਿਖਣਗੀਆਂ।", aria_update:"{id} ਦੀ ਸਥਿਤੀ ਬਦਲੋ"
+};
+
+/* ===== Language engine ===== */
+const LANGS = [
+  {code:'en',      native:'English',   eng:'English'},
+  {code:'hi',      native:'हिन्दी',      eng:'Hindi'},
+  {code:'hi-Latn', native:'Hinglish',  eng:'Hindi in English letters'},
+  {code:'mr',      native:'मराठी',      eng:'Marathi'},
+  {code:'bn',      native:'বাংলা',      eng:'Bengali'},
+  {code:'ta',      native:'தமிழ்',      eng:'Tamil'},
+  {code:'te',      native:'తెలుగు',     eng:'Telugu'},
+  {code:'gu',      native:'ગુજરાતી',    eng:'Gujarati'},
+  {code:'kn',      native:'ಕನ್ನಡ',      eng:'Kannada'},
+  {code:'ml',      native:'മലയാളം',    eng:'Malayalam'},
+  {code:'pa',      native:'ਪੰਜਾਬੀ',     eng:'Punjabi'}
+];
+/* Indic fonts are fetched only when that language is picked */
+const FONT_FOR = { hi:'Noto+Sans+Devanagari', mr:'Noto+Sans+Devanagari', bn:'Noto+Sans+Bengali', ta:'Noto+Sans+Tamil',
+  te:'Noto+Sans+Telugu', gu:'Noto+Sans+Gujarati', kn:'Noto+Sans+Kannada', ml:'Noto+Sans+Malayalam', pa:'Noto+Sans+Gurmukhi' };
+
+let LANG = 'en';
+try{ const saved = localStorage.getItem('onocp_lang'); if(saved && T[saved]) LANG = saved; }catch(e){}
+
+function t(key, vars){
+  let s = (T[LANG] && T[LANG][key]);
+  if(s === undefined) s = T.en[key];
+  if(s === undefined) s = key;
+  if(vars) for(const k in vars) s = s.split('{'+k+'}').join(vars[k]);
+  return s;
+}
+function st(status){ return t('st_'+status); }
+
+/* One stylesheet for all Indic scripts. unicode-range makes the browser fetch only the slices it needs. */
+function loadFont(){
+  if(document.getElementById('indic-fonts')) return;
+  const l = document.createElement('link');
+  l.id = 'indic-fonts'; l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?' + [...new Set(Object.values(FONT_FOR))].map(f=>'family='+f+':wght@400;500;600;700').join('&') + '&display=swap';
+  document.head.appendChild(l);
+}
+
+/* Ashoka chakra: 24 spokes */
+function chakraSVG(){
+  let spokes = '';
+  for(let i=0;i<24;i++) spokes += `<line x1="50" y1="43" x2="50" y2="8" transform="rotate(${i*15} 50 50)"/>`;
+  return `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="50" cy="50" r="46" stroke-width="3"/><circle cx="50" cy="50" r="7" fill="currentColor" stroke="none"/>${spokes}</svg>`;
+}
+document.querySelectorAll('[data-chakra]').forEach(el=>{ el.innerHTML = chakraSVG(); });
+
+/* Language picker UI: header dropdown + chips on the home page */
+function renderLangUI(){
+  const panel = document.getElementById('lang-grid-panel');
+  const strip = document.getElementById('lang-grid-strip');
+  panel.innerHTML = LANGS.map(l=>
+    `<button type="button" class="lang-opt" data-lang="${l.code}" lang="${l.code}" aria-pressed="${l.code===LANG}">
+       <span class="native">${l.native}</span><span class="eng">${l.eng}</span></button>`).join('');
+  strip.innerHTML = LANGS.map(l=>
+    `<button type="button" class="chip" data-lang="${l.code}" lang="${l.code}" aria-pressed="${l.code===LANG}">${l.native}</button>`).join('');
+}
+document.addEventListener('click', e=>{
+  const b = e.target.closest('[data-lang]');
+  if(b){ setLang(b.dataset.lang); return; }
+  const btn = document.getElementById('lang-btn');
+  const panel = document.getElementById('lang-panel');
+  if(btn.contains(e.target)){
+    const open = panel.hidden;
+    panel.hidden = !open; btn.setAttribute('aria-expanded', String(open));
+  }else if(!panel.contains(e.target)){
+    panel.hidden = true; btn.setAttribute('aria-expanded','false');
+  }
+});
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape'){
+    const panel = document.getElementById('lang-panel');
+    if(!panel.hidden){ panel.hidden = true; const b=document.getElementById('lang-btn'); b.setAttribute('aria-expanded','false'); b.focus(); }
+  }
 });
 
-// ---- Category dropdown ----
+function setLang(code){
+  if(!T[code]) return;
+  LANG = code;
+  try{ localStorage.setItem('onocp_lang', code); }catch(e){}
+  applyI18n();
+  const panel = document.getElementById('lang-panel');
+  panel.hidden = true; document.getElementById('lang-btn').setAttribute('aria-expanded','false');
+}
+
+function applyI18n(){
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>{ el.innerHTML = t(el.dataset.i18nHtml); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{ el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el=>{ el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
+  document.querySelectorAll('#filter-status option[data-st]').forEach(o=>{ o.textContent = st(o.dataset.st); });
+  document.title = 'ONOCP — ' + t('brand_sub');
+  document.getElementById('lang-current').textContent = LANGS.find(l=>l.code===LANG).native;
+  renderLangUI();
+  if(typeof refreshDynamic === 'function') refreshDynamic();
+}
+
+/* ===== App ===== */
+const API = "https://onocp.onrender.com";
+const STATUS_COLORS = { "Pending":"#B45309", "Assigned":"#1D4ED8", "In Progress":"#6D28D9", "Resolved":"#0C6A05" };
+const STATUS_FLOW = ["Pending","Assigned","In Progress","Resolved"];
+const lastTickets = {};
+let lastStats = null;
+
+// ---- Tabs ----
+function showTab(name){
+  const btn = document.querySelector(`nav button[data-tab="${name}"]`);
+  if(!btn) return;
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  window.scrollTo({top:0});
+  if(name==='admin') loadAdmin();
+  if(name==='heatmap') loadHeatmap();
+  if(name==='submit' && pickMap) setTimeout(()=>pickMap.invalidateSize(),50);
+  if(name==='home') loadLiveLine();
+}
+document.querySelectorAll('nav button').forEach(btn=>{ btn.addEventListener('click', ()=> showTab(btn.dataset.tab)); });
+document.querySelectorAll('[data-go]').forEach(el=>{ el.addEventListener('click', ()=> showTab(el.dataset.go)); });
+
+function activeTab(){ const a = document.querySelector('.tab.active'); return a ? a.id.replace('tab-','') : 'home'; }
+function refreshDynamic(){
+  renderLiveLine(); updateHint();
+  Object.keys(lastTickets).forEach(slot=> renderTicket(lastTickets[slot], slot));
+  const tab = activeTab();
+  if(tab==='admin') loadAdmin();
+  if(tab==='heatmap') loadHeatmap();
+}
+
+// ---- Live numbers on the home page (quietly skipped if the server is asleep) ----
+function renderLiveLine(){
+  const el = document.getElementById('live-line');
+  if(!lastStats){ el.textContent = ''; return; }
+  const resolved = (lastStats.by_status && lastStats.by_status['Resolved']) || 0;
+  el.innerHTML = t('live_line', {t:lastStats.total, r:resolved});
+}
+async function loadLiveLine(){
+  try{ lastStats = await (await fetch(API+"/api/stats")).json(); }catch(e){ lastStats = null; }
+  renderLiveLine();
+}
+
+// ---- Category + status dropdowns ----
 fetch(API+"/api/categories").then(r=>r.json()).then(cats=>{
   const sel = document.getElementById('f-category');
   cats.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
-  const fd = document.getElementById('filter-department');
-  // department filter populated after we know departments from stats
-});
+}).catch(()=>{});
 STATUS_FLOW.forEach(s=>{
-  const o=document.createElement('option'); o.value=s; o.textContent=s;
+  const o=document.createElement('option'); o.value=s; o.dataset.st=s;
   document.getElementById('filter-status').appendChild(o);
 });
 
 // ---- Map pick (submit) ----
-let pickMap = L.map('map-pick').setView([22.9734, 78.6569], 4.3);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap'}).addTo(pickMap);
-let pickMarker = null;
-let pickedLat=null, pickedLng=null;
-pickMap.on('click', e=>{
-  pickedLat = e.latlng.lat; pickedLng = e.latlng.lng;
-  if(pickMarker) pickMap.removeLayer(pickMarker);
-  pickMarker = L.marker(e.latlng).addTo(pickMap);
-  document.getElementById('latlng-hint').textContent = `Location set: ${pickedLat.toFixed(3)}, ${pickedLng.toFixed(3)}`;
-});
-
-// ---- Video Capture ----
-let mediaRecorder;
-let recordedChunks = [];
-let videoBlob = null;
-let stream = null;
-
-const videoPreview = document.getElementById('video-preview');
-const videoPlayback = document.getElementById('video-playback');
-const btnStartCamera = document.getElementById('btn-start-camera');
-const btnSwitchCamera = document.getElementById('btn-switch-camera');
-const btnRecord = document.getElementById('btn-record');
-const btnStop = document.getElementById('btn-stop');
-const btnRetake = document.getElementById('btn-retake');
-
-let currentFacingMode = 'environment';
-
-async function startCamera() {
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-    }
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentFacingMode }, audio: true });
-        videoPreview.srcObject = stream;
-        videoPreview.style.display = 'block';
-        videoPlayback.style.display = 'none';
-        btnStartCamera.style.display = 'none';
-        btnRecord.style.display = 'block';
-        btnSwitchCamera.style.display = 'block';
-        btnRetake.style.display = 'none';
-    } catch (err) {
-        alert("Camera permission denied or not available.");
-    }
+const HAS_MAP = typeof L !== 'undefined';
+let pickMap = null, pickMarker = null, pickedLat = null, pickedLng = null;
+function updateHint(){
+  const h = document.getElementById('latlng-hint');
+  if(!HAS_MAP) h.textContent = t('hint_map_fail');
+  else if(pickedLat===null) h.textContent = t('hint_nopin');
+  else h.textContent = t('hint_pinset', {c: pickedLat.toFixed(3)+', '+pickedLng.toFixed(3)});
+}
+if(HAS_MAP){
+  pickMap = L.map('map-pick').setView([22.9734, 78.6569], 4.3);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap'}).addTo(pickMap);
+  pickMap.on('click', e=>{
+    pickedLat = e.latlng.lat; pickedLng = e.latlng.lng;
+    if(pickMarker) pickMap.removeLayer(pickMarker);
+    pickMarker = L.marker(e.latlng).addTo(pickMap);
+    updateHint();
+  });
+}else{
+  document.getElementById('map-pick').innerHTML = `<div class="msg error" style="margin:0;">${t('map_fail')}</div>`;
 }
 
+// ---- Video capture ----
+let mediaRecorder, recordedChunks = [], videoBlob = null, stream = null;
+let currentFacingMode = 'environment';
+const $ = id => document.getElementById(id);
+const videoPreview = $('video-preview'), videoPlayback = $('video-playback');
+const btnStartCamera = $('btn-start-camera'), btnSwitchCamera = $('btn-switch-camera');
+const btnRecord = $('btn-record'), btnStop = $('btn-stop'), btnRetake = $('btn-retake');
+
+async function startCamera(){
+  if(stream) stream.getTracks().forEach(tr=>tr.stop());
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:currentFacingMode }, audio:true });
+    videoPreview.srcObject = stream;
+    videoPreview.style.display = 'block'; videoPlayback.style.display = 'none';
+    btnStartCamera.style.display = 'none'; btnRecord.style.display = 'inline-flex';
+    btnSwitchCamera.style.display = 'inline-flex'; btnRetake.style.display = 'none';
+  }catch(err){ alert(t('cam_denied')); }
+}
 btnStartCamera.addEventListener('click', startCamera);
-
-btnSwitchCamera.addEventListener('click', () => {
-    currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-    startCamera();
+btnSwitchCamera.addEventListener('click', ()=>{ currentFacingMode = currentFacingMode==='environment' ? 'user' : 'environment'; startCamera(); });
+btnRecord.addEventListener('click', ()=>{
+  recordedChunks = [];
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.ondataavailable = e=>{ if(e.data.size>0) recordedChunks.push(e.data); };
+  mediaRecorder.onstop = ()=>{
+    videoBlob = new Blob(recordedChunks, { type:'video/webm' });
+    videoPlayback.src = URL.createObjectURL(videoBlob);
+    videoPreview.style.display = 'none'; videoPlayback.style.display = 'block';
+    btnRetake.style.display = 'inline-flex';
+    stream.getTracks().forEach(tr=>tr.stop());
+  };
+  mediaRecorder.start();
+  btnRecord.style.display = 'none'; btnSwitchCamera.style.display = 'none'; btnStop.style.display = 'inline-flex';
 });
-
-btnRecord.addEventListener('click', () => {
-    recordedChunks = [];
-    mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordedChunks.push(e.data);
-    };
-    mediaRecorder.onstop = () => {
-        videoBlob = new Blob(recordedChunks, { type: 'video/webm' });
-        videoPlayback.src = URL.createObjectURL(videoBlob);
-        videoPreview.style.display = 'none';
-        videoPlayback.style.display = 'block';
-        btnRetake.style.display = 'block';
-        stream.getTracks().forEach(track => track.stop());
-    };
-    mediaRecorder.start();
-    btnRecord.style.display = 'none';
-    btnSwitchCamera.style.display = 'none';
-    btnStop.style.display = 'block';
-});
-
-btnStop.addEventListener('click', () => {
-    mediaRecorder.stop();
-    btnStop.style.display = 'none';
-});
-
-btnRetake.addEventListener('click', () => {
-    videoBlob = null;
-    btnStartCamera.click();
-});
+btnStop.addEventListener('click', ()=>{ mediaRecorder.stop(); btnStop.style.display = 'none'; });
+btnRetake.addEventListener('click', ()=>{ videoBlob = null; btnStartCamera.click(); });
 
 // ---- Submit ----
 async function submitComplaint(){
-  const title = document.getElementById('f-title').value.trim();
-  const description = document.getElementById('f-desc').value.trim();
-  const msg = document.getElementById('submit-msg');
+  const title = $('f-title').value.trim();
+  const description = $('f-desc').value.trim();
+  const msg = $('submit-msg');
   msg.innerHTML = '';
   if(title.length<3 || description.length<5){
-    msg.innerHTML = '<div class="msg error">Title aur description thoda aur detail me likho.</div>';
+    msg.innerHTML = `<div class="msg error">${t('err_short')}</div>`;
     return;
   }
   const body = {
     title, description,
-    location_text: document.getElementById('f-location').value.trim() || null,
+    location_text: $('f-location').value.trim() || null,
     lat: pickedLat, lng: pickedLng,
-    citizen_contact: document.getElementById('f-contact').value.trim() || null,
-    category_override: document.getElementById('f-category').value || null,
+    citizen_contact: $('f-contact').value.trim() || null,
+    category_override: $('f-category').value || null,
   };
-    try{
-      const r = await fetch(API+"/api/complaints", {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-      if(!r.ok) throw new Error('Server error');
-      let c = await r.json();
-
-      if (videoBlob) {
-        msg.innerHTML = '<div class="msg" style="background:#fff3cd; color:#856404;">Uploading video...</div>';
-        const formData = new FormData();
-        formData.append('video', videoBlob, 'complaint.webm');
-        const r2 = await fetch(API+"/api/complaints/"+c.id+"/video", {
-          method: 'POST',
-          body: formData
-        });
-        if(r2.ok) {
-            c = await r2.json();
-        }
-      }
-
-      renderTicket(c, 'ticket-slot');
-      document.getElementById('f-title').value='';
-      document.getElementById('f-desc').value='';
-      document.getElementById('f-location').value='';
-      document.getElementById('f-contact').value='';
-      
-      // Reset video
-      videoBlob = null;
-      videoPlayback.style.display = 'none';
-      videoPreview.style.display = 'none';
-      btnStartCamera.style.display = 'block';
-      btnRetake.style.display = 'none';
-      btnRecord.style.display = 'none';
-      btnSwitchCamera.style.display = 'none';
-      btnStop.style.display = 'none';
-    }catch(e){
-      msg.innerHTML = '<div class="msg error">Backend se connect nahi ho paaya. Kya uvicorn chal raha hai (127.0.0.1:8000)?</div>';
+  try{
+    const r = await fetch(API+"/api/complaints", {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    if(!r.ok) throw new Error('Server error');
+    let c = await r.json();
+    if(videoBlob){
+      msg.innerHTML = `<div class="msg info">${t('uploading')}</div>`;
+      const fd = new FormData(); fd.append('video', videoBlob, 'complaint.webm');
+      const r2 = await fetch(API+"/api/complaints/"+c.id+"/video", {method:'POST', body:fd});
+      if(r2.ok) c = await r2.json();
+      msg.innerHTML = '';
     }
+    renderTicket(c, 'ticket-slot');
+    ['f-title','f-desc','f-location','f-contact'].forEach(id=>{ $(id).value=''; });
+    videoBlob = null;
+    videoPlayback.style.display = 'none'; videoPreview.style.display = 'none';
+    btnStartCamera.style.display = 'inline-flex';
+    [btnRetake, btnRecord, btnSwitchCamera, btnStop].forEach(b=>{ b.style.display='none'; });
+  }catch(e){
+    msg.innerHTML = `<div class="msg error">${t('err_conn')}</div>`;
+  }
 }
 
 function renderTicket(c, slotId){
-  const color = STATUS_COLORS[c.status] || '#8a8578';
+  lastTickets[slotId] = c;
+  const color = STATUS_COLORS[c.status] || '#4F566F';
+  const idx = STATUS_FLOW.indexOf(c.status);
   const stepsHtml = STATUS_FLOW.map((s,i)=>{
-    const idx = STATUS_FLOW.indexOf(c.status);
-    let cls = i<idx ? 'done' : (i===idx ? 'done current' : '');
-    return `<div class="step ${cls}">${s}</div>`;
+    const cls = i<idx ? 'done' : (i===idx ? 'done current' : '');
+    return `<div class="step ${cls}">${escapeHtml(st(s))}</div>`;
   }).join('');
-  document.getElementById(slotId).innerHTML = `
+  $(slotId).innerHTML = `
     <div class="ticket">
       <div class="ticket-top">
-        <div class="eyebrow">Complaint Receipt</div>
-        <div class="ticket-id">${c.tracking_id}</div>
-        <h3 style="margin-top:8px; font-size:1.1rem;">${escapeHtml(c.title)}</h3>
-        <div class="hint" style="margin-top:6px;">${escapeHtml(c.category)} → ${escapeHtml(c.department)}</div>
-        ${c.video_url ? `<div style="margin-top: 14px;"><video src="${API}${c.video_url}" controls style="width:100%; border-radius:6px; background:#000; max-height:200px;"></video></div>` : ''}
-        <div class="stepper">${stepsHtml}</div>
+        <div class="ticket-label">${t('receipt')}</div>
+        <div class="ticket-id id-text">${escapeHtml(c.tracking_id)}</div>
+        <h3>${escapeHtml(c.title)}</h3>
+        <div class="route">${escapeHtml(c.category)} &rarr; <b>${escapeHtml(c.department)}</b></div>
+        ${c.video_url ? `<div style="margin-top:14px;"><video src="${API}${c.video_url}" controls playsinline style="width:100%; border-radius:8px; background:#000; max-height:200px;"></video></div>` : ''}
+        <div class="stepper" aria-label="${escapeHtml(st(c.status))}">${stepsHtml}</div>
       </div>
       <div class="perforation"></div>
       <div class="ticket-bottom">
-        <div class="seal-badge" style="background:${color}">${c.status}</div>
-        <div style="text-align:right; font-size:0.78rem; color:#8a8578;">
-          Deadline: ${new Date(c.deadline).toLocaleDateString()}<br/>
-          ${c.overdue ? '<span style="color:var(--seal); font-weight:600;">SLA breached — escalated</span>' : 'On track'}
+        <span class="stamp" style="background:${color}">${escapeHtml(st(c.status))}</span>
+        <div class="deadline">
+          ${t('resolve_by', {d:new Date(c.deadline).toLocaleDateString()})}<br/>
+          ${c.overdue ? `<span class="breach">${t('sla_breached_esc')}</span>` : `<span class="ok">${t('on_track')}</span>`}
         </div>
       </div>
     </div>`;
@@ -447,106 +1276,102 @@ function renderTicket(c, slotId){
 
 // ---- Track ----
 async function trackComplaint(){
-  const id = document.getElementById('track-input').value.trim();
-  const msg = document.getElementById('track-msg');
-  const result = document.getElementById('track-result');
-  msg.innerHTML=''; result.innerHTML='';
-  if(!id) return;
+  const id = $('track-input').value.trim();
+  const msg = $('track-msg'), result = $('track-result');
+  msg.innerHTML=''; result.innerHTML=''; delete lastTickets['track-result'];
+  if(!id){ msg.innerHTML = `<div class="msg error">${t('err_id_empty')}</div>`; return; }
   try{
-    const r = await fetch(API+`/api/complaints/track/${id}`);
-    if(!r.ok){ msg.innerHTML = '<div class="msg error">Tracking ID nahi mila.</div>'; return; }
-    const c = await r.json();
-    renderTicket(c, 'track-result');
+    const r = await fetch(API+`/api/complaints/track/${encodeURIComponent(id)}`);
+    if(!r.ok){ msg.innerHTML = `<div class="msg error">${t('err_id_notfound')}</div>`; return; }
+    renderTicket(await r.json(), 'track-result');
   }catch(e){
-    msg.innerHTML = '<div class="msg error">Backend se connect nahi ho paaya.</div>';
+    msg.innerHTML = `<div class="msg error">${t('err_conn')}</div>`;
   }
 }
+$('track-input').addEventListener('keydown', e=>{ if(e.key==='Enter') trackComplaint(); });
 
 // ---- Admin ----
 async function loadAdmin(){
-  const statsRow = document.getElementById('stats-row');
+  const statsRow = $('stats-row');
   try{
     const stats = await (await fetch(API+"/api/stats")).json();
     statsRow.innerHTML = `
-      <div class="stat"><div class="num">${stats.total}</div><div class="lbl">Total</div></div>
-      <div class="stat"><div class="num">${stats.by_status['Pending']||0}</div><div class="lbl">Pending</div></div>
-      <div class="stat"><div class="num">${stats.by_status['Resolved']||0}</div><div class="lbl">Resolved</div></div>
-      <div class="stat overdue"><div class="num">${stats.overdue}</div><div class="lbl">SLA Breached</div></div>
-    `;
-    const deptSel = document.getElementById('filter-department');
+      <div class="stat"><div class="v num">${stats.total}</div><div class="l">${t('stat_total')}</div></div>
+      <div class="stat pending"><div class="v num">${stats.by_status['Pending']||0}</div><div class="l">${t('stat_pending')}</div></div>
+      <div class="stat resolved"><div class="v num">${stats.by_status['Resolved']||0}</div><div class="l">${t('stat_resolved')}</div></div>
+      <div class="stat overdue"><div class="v num">${stats.overdue}</div><div class="l">${t('stat_overdue')}</div></div>`;
+    const deptSel = $('filter-department');
     if(deptSel.options.length<=1){
-      Object.keys(stats.by_department).forEach(d=>{
-        const o=document.createElement('option'); o.value=d; o.textContent=d; deptSel.appendChild(o);
-      });
+      Object.keys(stats.by_department).forEach(d=>{ const o=document.createElement('option'); o.value=d; o.textContent=d; deptSel.appendChild(o); });
     }
   }catch(e){
-    statsRow.innerHTML = '<div class="msg error">Backend se connect nahi ho paaya.</div>';
+    statsRow.style.display='block';
+    statsRow.innerHTML = `<div class="msg error">${t('err_conn_short')}</div>`;
     return;
   }
-
-  const status = document.getElementById('filter-status').value;
-  const department = document.getElementById('filter-department').value;
+  statsRow.style.display='';
+  const status = $('filter-status').value, department = $('filter-department').value;
   let url = API+"/api/complaints?";
   if(status) url += `status=${encodeURIComponent(status)}&`;
   if(department) url += `department=${encodeURIComponent(department)}&`;
   const complaints = await (await fetch(url)).json();
-  const tbody = document.getElementById('admin-tbody');
-  tbody.innerHTML = complaints.map(c=>`
+  $('admin-tbody').innerHTML = complaints.map(c=>`
     <tr>
-      <td class="mono">${c.tracking_id}</td>
+      <td class="id-text">${escapeHtml(c.tracking_id)}</td>
       <td>${escapeHtml(c.title)}</td>
       <td>${escapeHtml(c.category)}</td>
       <td>${escapeHtml(c.department)}</td>
-      <td><span class="badge" style="background:${STATUS_COLORS[c.status]}">${c.status}</span>${c.overdue?' <span style="color:var(--seal); font-size:0.7rem;">⚠ SLA</span>':''}</td>
-      <td>${new Date(c.deadline).toLocaleDateString()}</td>
-      <td>${c.video_url ? `<a href="${API}${c.video_url}" target="_blank" style="color:var(--seal); font-weight:600; text-decoration:none;">View</a>` : '<span style="color:#8a8578; font-size:0.75rem;">-</span>'}</td>
+      <td><span class="badge" style="background:${STATUS_COLORS[c.status]||'#4F566F'}">${escapeHtml(st(c.status))}</span>${c.overdue?`<span class="sla-flag">${t('sla_breached')}</span>`:''}</td>
+      <td class="num">${new Date(c.deadline).toLocaleDateString()}</td>
+      <td>${c.video_url ? `<a class="link" href="${API}${c.video_url}" target="_blank" rel="noopener">${t('view')}</a>` : `<span style="color:var(--muted);">${t('none')}</span>`}</td>
       <td>
-        <select onchange="updateStatus(${c.id}, this.value)">
-          ${STATUS_FLOW.map(s=>`<option value="${s}" ${s===c.status?'selected':''}>${s}</option>`).join('')}
+        <select onchange="updateStatus(${c.id}, this.value)" aria-label="${escapeHtml(t('aria_update',{id:c.tracking_id}))}">
+          ${STATUS_FLOW.map(s=>`<option value="${s}" ${s===c.status?'selected':''}>${escapeHtml(st(s))}</option>`).join('')}
         </select>
       </td>
-    </tr>
-  `).join('') || '<tr><td colspan="8" style="text-align:center; color:#8a8578; padding:24px;">No complaints yet.</td></tr>';
+    </tr>`).join('') || `<tr><td colspan="8" style="text-align:center; color:var(--muted); padding:36px;">${t('no_complaints')}</td></tr>`;
 }
-
 async function updateStatus(id, status){
   await fetch(API+`/api/complaints/${id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({status})});
   loadAdmin();
 }
 
 // ---- Heatmap ----
-let heatMapInstance = null;
+let heatMapInstance = null, heatLayer = null;
 async function loadHeatmap(){
+  if(!HAS_MAP){ $('heatmap').innerHTML = `<div class="msg error" style="margin:0;">${t('map_fail')}</div>`; return; }
   if(!heatMapInstance){
     heatMapInstance = L.map('heatmap').setView([22.9734, 78.6569], 4.3);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OpenStreetMap'}).addTo(heatMapInstance);
+    heatLayer = L.layerGroup().addTo(heatMapInstance);
   }
   setTimeout(()=>heatMapInstance.invalidateSize(),50);
-  const data = await (await fetch(API+"/api/complaints/heatmap")).json();
+  let data = [];
+  try{ data = await (await fetch(API+"/api/complaints/heatmap")).json(); }
+  catch(e){ $('heatmap-legend').innerHTML = `<span>${t('heat_fail')}</span>`; return; }
+  heatLayer.clearLayers();
   data.forEach(p=>{
-    L.circleMarker([p.lat, p.lng], {
-      radius:8, fillColor:p.color, color:'#fff', weight:1, fillOpacity:0.85
-    }).bindPopup(`<b>${p.category}</b><br/>Status: ${p.status}`).addTo(heatMapInstance);
+    L.circleMarker([p.lat, p.lng], { radius:9, fillColor:p.color, color:'#fff', weight:2, fillOpacity:0.9 })
+      .bindPopup(`<b>${escapeHtml(p.category)}</b><br/>${escapeHtml(st(p.status))}`).addTo(heatLayer);
   });
   const cats = [...new Set(data.map(p=>p.category))];
-  document.getElementById('heatmap-legend').innerHTML = cats.map(c=>{
+  $('heatmap-legend').innerHTML = cats.map(c=>{
     const color = data.find(p=>p.category===c).color;
-    return `<span><span class="dot" style="background:${color}"></span>${c}</span>`;
-  }).join('') || '<span style="color:#8a8578;">Koi geo-tagged complaint nahi hai abhi.</span>';
+    return `<span><span class="dot" style="background:${color}"></span>${escapeHtml(c)}</span>`;
+  }).join('') || `<span>${t('heat_empty')}</span>`;
 }
 
-function escapeHtml(s){
-  const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML;
-}
+function escapeHtml(s){ const d=document.createElement('div'); d.textContent = s==null ? '' : s; return d.innerHTML; }
+
 const ADMIN_KEY = 'onocp2026';
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('admin') === ADMIN_KEY) {
-  document.getElementById('admin-nav-btn').style.display = 'inline-block';
+if(new URLSearchParams(window.location.search).get('admin') === ADMIN_KEY){
+  $('admin-nav-btn').style.display = 'inline-block';
 }
+
+/* ===== Start ===== */
+loadFont();
+applyI18n();
+loadLiveLine();
 </script>
 </body>
 </html>
-
-
-
-
